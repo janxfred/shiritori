@@ -170,3 +170,4 @@ class CheckTimeResponse with _$CheckTimeResponse {
       _$CheckTimeResponseFromJson(json);
 }
 
+
