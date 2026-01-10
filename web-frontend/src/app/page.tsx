@@ -91,15 +91,44 @@ export default function HomePage() {
     const aiLevel = level ?? selectedLevel;
     try {
       const response = await startGame(aiLevel);
-      setSession(response.session);
-      setDemonMessage(response.message);
-      setRemainingTime(TIME_LIMIT_MS);
-      setPhase('playing');
       setLastPlayerResult(null);
       setLastAiResult(null);
       setWinner(null);
-      setIsAiThinking(false);
-      setTimeout(() => inputRef.current?.focus(), 100);
+      setPhase('playing');
+      
+      // AI先攻の場合
+      if (response.firstTurn === 'ai' && response.aiFirstMove) {
+        // まずAI思考中を表示
+        setSession({
+          ...response.session,
+          currentTurn: 'ai',
+          expectedStartChar: response.startChar,
+        });
+        setDemonMessage(`我が先攻だ。「${response.startChar}」から始めるぞ…`);
+        setIsAiThinking(true);
+        
+        // 2秒後にAIの結果を表示
+        setTimeout(() => {
+          setSession(response.session);
+          setDemonMessage(response.message);
+          setLastAiResult({
+            word: response.aiFirstMove!.word,
+            isValid: true,
+            message: response.message,
+            capturedChars: response.aiFirstMove!.capturedChars,
+          });
+          setIsAiThinking(false);
+          setRemainingTime(TIME_LIMIT_MS);
+          setTimeout(() => inputRef.current?.focus(), 100);
+        }, AI_RESPONSE_DELAY_MS);
+      } else {
+        // プレイヤー先攻の場合
+        setSession(response.session);
+        setDemonMessage(response.message);
+        setRemainingTime(TIME_LIMIT_MS);
+        setIsAiThinking(false);
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
     } catch (error) {
       console.error('ゲーム開始エラー:', error);
     }

@@ -43,11 +43,22 @@ export const sessionSchema = z.object({
 
 export type GameSession = z.infer<typeof sessionSchema>;
 
+/** AI先攻時の最初の手 */
+export const aiFirstMoveSchema = z.object({
+  word: z.string(),
+  capturedChars: z.array(z.string()),
+});
+
+export type AiFirstMove = z.infer<typeof aiFirstMoveSchema>;
+
 /** ゲーム開始レスポンス */
 export const createGameResponseSchema = z.object({
   session: sessionSchema,
   message: z.string(),
   dictionarySize: z.number(),
+  startChar: z.string(),
+  firstTurn: z.enum(['player', 'ai']),
+  aiFirstMove: aiFirstMoveSchema.optional(),
 });
 
 export type CreateGameResponse = z.infer<typeof createGameResponseSchema>;

@@ -88,3 +88,19 @@ export function getDictionarySize(): number {
   return dictionary!.size;
 }
 
+/**
+ * 利用可能な開始文字のリストを取得
+ */
+export function getAvailableStartChars(): string[] {
+  ensureLoaded();
+  return Array.from(prefixIndex!.keys());
+}
+
+/**
+ * ランダムな開始文字を取得
+ */
+export function getRandomStartChar(): string {
+  const chars = getAvailableStartChars();
+  return chars[Math.floor(Math.random() * chars.length)];
+}
+

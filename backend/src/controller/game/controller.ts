@@ -3,14 +3,15 @@
  * 悪魔的しりとりのAPI エンドポイント
  */
 
-import { checkTimeLimit, processTurn } from "../../application/ProcessTurnUseCase";
+import { checkTimeLimit, processAiFirstTurn, processTurn } from "../../application/ProcessTurnUseCase";
 import { getRandomMessage } from "../../domain/constants/DemonMessages";
 import type { AiLevel } from "../../domain/services/AiBrainService";
-import { getDictionarySize } from "../../infrastructure/DictionaryRepository";
+import { getDictionarySize, getRandomStartChar } from "../../infrastructure/DictionaryRepository";
 import {
   createSession,
   getSession,
   sessionToJson,
+  updateSession,
 } from "../../infrastructure/GameSessionStore";
 import { type ServerInstance } from "../../lib/fastify";
 import {
@@ -34,7 +35,7 @@ export default async function (fastify: ServerInstance) {
       schema: {
         tags: ["Game"],
         summary: "ゲーム開始",
-        description: "新しい悪魔的しりとりゲームを開始します。AIレベルを指定できます（1: 初級, 2: 中級, 3: 上級）。",
+        description: "新しい悪魔的しりとりゲームを開始します。AIレベルを指定できます（1: 初級, 2: 中級, 3: 上級）。先攻はランダムに決定されます。",
         body: createGameRequestSchema,
         response: {
           201: createGameResponseSchema,
@@ -43,13 +44,39 @@ export default async function (fastify: ServerInstance) {
     },
     async (request, reply) => {
       const { aiLevel } = request.body;
-      const session = createSession(aiLevel as AiLevel);
-      const message = getRandomMessage("gameStart");
+      
+      // ランダムな開始文字を取得
+      const startChar = getRandomStartChar();
+      
+      // セッション作成（先攻はランダム）
+      const session = createSession(aiLevel as AiLevel, undefined, startChar);
+      
+      // 最初のターンを記録（AIのターン処理後に変わるため）
+      const firstTurn = session.currentTurn;
+      
+      let message = getRandomMessage("gameStart");
+      let aiFirstMove: { word: string; capturedChars: string[] } | undefined;
+      
+      // AI先攻の場合、最初のターンを処理
+      if (firstTurn === "ai") {
+        const aiResult = processAiFirstTurn(session);
+        aiFirstMove = {
+          word: aiResult.word,
+          capturedChars: aiResult.capturedChars,
+        };
+        message = `我が先攻だ。「${startChar}」から始めるぞ。${aiResult.message}`;
+      } else {
+        // プレイヤー先攻
+        message = `汝が先攻だ。「${startChar}」から始めよ。${message}`;
+      }
 
       return reply.status(201).send({
         session: sessionToJson(session),
         message,
         dictionarySize: getDictionarySize(),
+        startChar,
+        firstTurn,
+        aiFirstMove: firstTurn === "ai" ? aiFirstMove : undefined,
       });
     }
   );

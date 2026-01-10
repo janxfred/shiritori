@@ -388,6 +388,60 @@ function processPlayerResult(
 }
 
 /**
+ * AI先攻時の最初のターンを処理
+ */
+export function processAiFirstTurn(
+  session: GameSession
+): NonNullable<TurnResult["aiResult"]> {
+  session.turnCount++;
+
+  const result = thinkNextWord({
+    startChar: session.expectedStartChar!,
+    playerCapturedChars: session.playerCapturedChars,
+    usedWords: session.usedWords,
+    findWordsByPrefix,
+    level: session.aiLevel,
+    turnCount: session.turnCount,
+  });
+
+  if (result.noValidWord || !result.word) {
+    // AI先攻で単語が見つからない場合（通常あり得ないが念のため）
+    const message = getRandomMessage("aiTurn");
+    return { word: "", isValid: false, message, capturedChars: [] };
+  }
+
+  const word = result.word;
+  session.usedWords.add(word);
+
+  const capturedChars = extractCharsToCapture(word);
+  for (const char of capturedChars) {
+    if (!session.playerCapturedChars.has(char) && !session.aiCapturedChars.has(char)) {
+      session.aiCapturedChars.add(char);
+    }
+  }
+
+  session.lastWord = word;
+  session.expectedStartChar = getNextStartChar(word);
+  session.currentTurn = "player";
+  session.turnStartedAt = new Date();
+
+  const message = getRandomMessage("aiTurn");
+  const entry: TurnHistoryEntry = {
+    turn: session.turnCount,
+    player: "ai",
+    word,
+    isValid: true,
+    capturedChars,
+    message,
+  };
+  session.history.push(entry);
+
+  updateSession(session);
+
+  return { word, isValid: true, message, capturedChars };
+}
+
+/**
  * AIのターンを処理
  */
 function processAiTurn(

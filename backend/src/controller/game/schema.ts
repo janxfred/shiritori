@@ -48,11 +48,20 @@ export const createGameRequestSchema = z.object({
   aiLevel: aiLevelSchema.optional().default(3),
 });
 
+/** AI先攻時の最初の手 */
+const aiFirstMoveSchema = z.object({
+  word: z.string(),
+  capturedChars: z.array(z.string()),
+});
+
 /** ゲーム開始レスポンス */
 export const createGameResponseSchema = z.object({
   session: sessionSchema,
   message: z.string(),
   dictionarySize: z.number(),
+  startChar: z.string(),
+  firstTurn: z.enum(["player", "ai"]),
+  aiFirstMove: aiFirstMoveSchema.optional(),
 });
 
 /** ゲーム状態レスポンス */
