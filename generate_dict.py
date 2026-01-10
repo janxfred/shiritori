@@ -18,15 +18,17 @@ def generate_demon_shiritori_dict():
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # カラム名を 'value' から 'text' に修正
+    # idseq で Entry, Kana, Sense を結合
+    # 名詞系の品詞を抽出（固有名詞は人名を除く地名・建物のみ許可）
     query = """
-    SELECT DISTINCT k.text, g.text
+    SELECT DISTINCT k.text
     FROM Kana k
-    JOIN Sense s ON k.entry_id = s.entry_id
-    JOIN pos sp ON s.id = sp.sense_id
-    JOIN SenseGloss g ON s.id = g.sense_id
-    WHERE sp.text = 'n' 
-       OR (sp.text = 'n-pr' AND (g.text LIKE '%place%' OR g.text LIKE '%station%' OR g.text LIKE '%building%' OR g.text LIKE '%city%'))
+    JOIN Sense s ON k.idseq = s.idseq
+    JOIN pos p ON s.ID = p.sid
+    WHERE p.text = 'noun (common) (futsuumeishi)'
+       OR p.text = 'noun or participle which takes the aux. verb suru'
+       OR p.text = 'noun, used as a prefix'
+       OR p.text = 'noun, used as a suffix'
     """
 
     print("MySQL用データの抽出を開始...")
@@ -42,7 +44,7 @@ def generate_demon_shiritori_dict():
     seen_words = set()
     hiragana_re = re.compile(r'^[ぁ-んー]+$')
 
-    for kana_text, gloss in rows:
+    for (kana_text,) in rows:
         word = jaconv.kata2hira(kana_text)
         
         # 基本ルール: ひらがなのみ [cite: 23]
@@ -57,7 +59,8 @@ def generate_demon_shiritori_dict():
     conn.close()
 
     # プロジェクトのルートに出力
-    output_path = '../dictionary.json'
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    output_path = os.path.join(script_dir, 'dictionary.json')
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(word_list, f, ensure_ascii=False, indent=2)
     
