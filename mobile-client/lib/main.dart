@@ -1,42 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import 'features/users/pages/user_list_page.dart';
-import 'features/users/pages/user_detail_page.dart';
+import 'features/game/pages/game_page.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // 画面の向きを縦に固定
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  
+  // ステータスバーを透明に
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+  ));
+  
   runApp(const ProviderScope(child: MyApp()));
 }
-
-final _router = GoRouter(
-  initialLocation: '/users',
-  routes: [
-    GoRoute(
-      path: '/users',
-      builder: (context, state) => const UserListPage(),
-    ),
-    GoRoute(
-      path: '/users/:userId',
-      builder: (context, state) {
-        final userId = state.pathParameters['userId']!;
-        return UserDetailPage(userId: userId);
-      },
-    ),
-  ],
-);
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'Mobile Client',
+    return MaterialApp(
+      title: '悪魔的しりとり',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFdc2626),
+          brightness: Brightness.dark,
+        ),
+        scaffoldBackgroundColor: const Color(0xFF1a0a0a),
         useMaterial3: true,
       ),
       localizationsDelegates: const [
@@ -49,7 +50,7 @@ class MyApp extends StatelessWidget {
         Locale('en'),
         Locale('ja'),
       ],
-      routerConfig: _router,
+      home: const GamePage(),
     );
   }
 }
