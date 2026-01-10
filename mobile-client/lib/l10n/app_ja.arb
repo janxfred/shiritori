@@ -1,0 +1,13 @@
+{
+  "@@locale": "ja",
+  "appTitle": "モバイルクライアント",
+  "userList": "ユーザー一覧",
+  "userDetail": "ユーザー詳細",
+  "name": "名前",
+  "email": "メールアドレス",
+  "createdAt": "作成日時",
+  "loading": "読み込み中...",
+  "error": "エラー",
+  "retry": "再試行",
+  "noUsers": "ユーザーが見つかりません"
+}

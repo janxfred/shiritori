@@ -1,0 +1,11 @@
+FROM node:24-bullseye-slim
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY prisma ./prisma/
+COPY src ./src/
+
+RUN npm ci && npx prisma generate
+
+CMD ["sh", "-c", "npx prisma migrate deploy && npm run db:seed"]

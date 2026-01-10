@@ -1,0 +1,43 @@
+{
+  "@@locale": "en",
+  "appTitle": "Mobile Client",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+  "userList": "User List",
+  "@userList": {
+    "description": "Title for user list screen"
+  },
+  "userDetail": "User Detail",
+  "@userDetail": {
+    "description": "Title for user detail screen"
+  },
+  "name": "Name",
+  "@name": {
+    "description": "Label for name field"
+  },
+  "email": "Email",
+  "@email": {
+    "description": "Label for email field"
+  },
+  "createdAt": "Created At",
+  "@createdAt": {
+    "description": "Label for created at field"
+  },
+  "loading": "Loading...",
+  "@loading": {
+    "description": "Loading indicator text"
+  },
+  "error": "Error",
+  "@error": {
+    "description": "Error title"
+  },
+  "retry": "Retry",
+  "@retry": {
+    "description": "Retry button text"
+  },
+  "noUsers": "No users found",
+  "@noUsers": {
+    "description": "Message when no users are found"
+  }
+}

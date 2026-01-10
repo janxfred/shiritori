@@ -1,0 +1,14 @@
+{
+  "eslint.workingDirectories": [
+    { "directory": "./web-frontend", "changeProcessCWD": true },
+    { "directory": "./backend", "changeProcessCWD": true }
+  ],
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+  },
+  "cSpell.words": ["fastify", "RORO"],
+}
