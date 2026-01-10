@@ -57,31 +57,20 @@ const SESSION_TTL_MS = 60 * 60 * 1000;
 
 /**
  * 新しいゲームセッションを作成
- * @param aiLevel AIのレベル
- * @param firstTurn 先攻（指定しない場合はランダム）
- * @param startChar 開始文字（指定しない場合はランダム）
  */
-export function createSession(
-  aiLevel: AiLevel = 3,
-  firstTurn?: "player" | "ai",
-  startChar?: string
-): GameSession {
+export function createSession(aiLevel: AiLevel = 3): GameSession {
   const now = new Date();
-  
-  // 先攻をランダムに決定（指定がない場合）
-  const currentTurn = firstTurn ?? (Math.random() < 0.5 ? "player" : "ai");
-  
   const session: GameSession = {
     id: uuidv4(),
     status: "playing",
-    currentTurn,
+    currentTurn: "player",
     playerMistakeCount: 0,
     aiMistakeCount: 0,
     playerCapturedChars: new Set(),
     aiCapturedChars: new Set(),
     usedWords: new Set(),
     lastWord: null,
-    expectedStartChar: startChar ?? null, // 開始文字は後でセット
+    expectedStartChar: null,
     turnCount: 0,
     roundCount: 0,
     history: [],
