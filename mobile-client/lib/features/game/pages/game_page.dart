@@ -206,6 +206,8 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
         });
         // AIターン終了後にプレイヤーのタイマーをリセット
         _resetTurnTimer();
+        // 自動スクロール
+        _scrollToBottom();
 
         // AI勝利チェック
         if (response.session.status == GameStatus.aiWin) {
@@ -221,8 +223,11 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
         });
         // AIの応答がない場合もタイマーをリセット
         _resetTurnTimer();
+        // 自動スクロール
+        _scrollToBottom();
       }
 
+      // プレイヤーの入力後も自動スクロール
       _scrollToBottom();
     } catch (e) {
       _showError('送信エラー: $e');
@@ -584,12 +589,17 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
       );
     }
 
+    // AI思考中は最後のAI履歴を非表示にする
+    final displayHistory = _isAiThinking && history.isNotEmpty && history.last.player == 'ai'
+        ? history.sublist(0, history.length - 1)
+        : history;
+
     return ListView.builder(
       controller: _historyScrollController,
       padding: const EdgeInsets.all(16),
-      itemCount: history.length,
+      itemCount: displayHistory.length,
       itemBuilder: (context, index) {
-        final entry = history[index];
+        final entry = displayHistory[index];
         final isPlayer = entry.player == 'player';
         
         return Align(
@@ -623,17 +633,6 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
                     decoration: entry.isValid ? null : TextDecoration.lineThrough,
                   ),
                 ),
-                if (entry.capturedChars.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      '+${entry.capturedChars.join(', ')}',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -831,43 +830,41 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 16),
             
-            // 再戦ボタン（レベル選択）
+            // AIレベル選択（選択のみ、再戦は別ボタン）
             const Text(
-              '再戦する',
+              'AIのレベル',
               style: TextStyle(
                 color: Colors.white70,
-                fontSize: 14,
+                fontSize: 12,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildRematchButton('Lv.1', AiLevel.easy),
+                _buildLevelSelectButton('Lv.1', AiLevel.easy),
                 const SizedBox(width: 6),
-                _buildRematchButton('Lv.2', AiLevel.normal),
+                _buildLevelSelectButton('Lv.2', AiLevel.normal),
                 const SizedBox(width: 6),
-                _buildRematchButton('Lv.3', AiLevel.hard),
+                _buildLevelSelectButton('Lv.3', AiLevel.hard),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             
-            // タイトルに戻るボタン
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _showGameOverModal = false;
-                  _phase = GamePhase.title;
-                });
-              },
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            // 再戦するボタン
+            ElevatedButton(
+              onPressed: () => _startGame(level: _selectedLevel),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
-              child: Text(
-                'タイトルに戻る',
-                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+              child: const Text(
+                '再戦する',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -876,7 +873,37 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     );
   }
 
-  /// 再戦ボタン
+  /// レベル選択ボタン（選択のみ、再戦は開始しない）
+  Widget _buildLevelSelectButton(String label, AiLevel level) {
+    final isSelected = _selectedLevel == level;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedLevel = level;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF3D3D3D),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[600]!,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.black : Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 再戦ボタン（タイトル画面用）
   Widget _buildRematchButton(String label, AiLevel level) {
     final isSelected = _selectedLevel == level;
     return ElevatedButton(
