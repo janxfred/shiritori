@@ -34,6 +34,10 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
   AiLevel _selectedLevel = AiLevel.normal;
   int _remainingTime = timeLimitMs;
   Timer? _timer;
+  // クライアント側でのターン開始時刻（サーバー時間のずれを防ぐため）
+  DateTime? _localTurnStartedAt;
+  // ゲームオーバーモーダル表示中か
+  bool _showGameOverModal = false;
 
   // アニメーション
   late AnimationController _shakeController;
@@ -60,14 +64,18 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  /// タイマー開始
+  /// タイマー開始（クライアント側で120秒から確実にカウントダウン）
   void _startTimer() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) async {
-      if (_session == null || _phase != GamePhase.playing || _isAiThinking) return;
+    // ローカルでターン開始時刻を記録
+    _localTurnStartedAt = DateTime.now();
+    _remainingTime = timeLimitMs; // 120000ms = 2分
 
-      final turnStarted = _session!.turnStartedAt.millisecondsSinceEpoch;
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) async {
+      if (_session == null || _phase != GamePhase.playing || _isAiThinking || _localTurnStartedAt == null) return;
+
       final now = DateTime.now().millisecondsSinceEpoch;
+      final turnStarted = _localTurnStartedAt!.millisecondsSinceEpoch;
       final elapsed = now - turnStarted;
       final remaining = timeLimitMs - elapsed;
 
@@ -84,7 +92,7 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
               _session = result.session;
               _demonMessage = result.message ?? '時間切れだ。';
               _winner = 'ai';
-              _phase = GamePhase.gameOver;
+              _showGameOverModal = true;
             });
             _timer?.cancel();
           }
@@ -95,10 +103,17 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     });
   }
 
+  /// ターンのタイマーをリセット（AIターン終了後）
+  void _resetTurnTimer() {
+    _localTurnStartedAt = DateTime.now();
+    _remainingTime = timeLimitMs;
+  }
+
   /// ゲーム開始
-  Future<void> _startGame() async {
+  Future<void> _startGame({AiLevel? level}) async {
+    final aiLevel = level ?? _selectedLevel;
     try {
-      final response = await _api.startGame(level: _selectedLevel);
+      final response = await _api.startGame(level: aiLevel);
       setState(() {
         _session = response.session;
         _demonMessage = response.message;
@@ -107,6 +122,8 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
         _lastPlayerResult = null;
         _lastAiResult = null;
         _winner = null;
+        _showGameOverModal = false;
+        _selectedLevel = aiLevel;
       });
       _startTimer();
     } catch (e) {
@@ -142,7 +159,7 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
         setState(() {
           _winner = response.winner;
           _demonMessage = response.playerResult.message;
-          _phase = GamePhase.gameOver;
+          _showGameOverModal = true;
         });
         _timer?.cancel();
         return;
@@ -173,14 +190,15 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
           _lastAiResult = response.aiResult;
           _demonMessage = response.aiResult!.message;
           _isAiThinking = false;
-          _remainingTime = timeLimitMs;
         });
+        // AIターン終了後にプレイヤーのタイマーをリセット
+        _resetTurnTimer();
 
         // AI勝利チェック
         if (response.session.status == GameStatus.aiWin) {
           setState(() {
             _winner = 'ai';
-            _phase = GamePhase.gameOver;
+            _showGameOverModal = true;
           });
           _timer?.cancel();
         }
@@ -188,6 +206,8 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
         setState(() {
           _isAiThinking = false;
         });
+        // AIの応答がない場合もタイマーをリセット
+        _resetTurnTimer();
       }
 
       _scrollToBottom();
@@ -242,12 +262,18 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
       body: SafeArea(
-        child: switch (_phase) {
-          GamePhase.title => _buildTitleScreen(),
-          GamePhase.playing => _buildGameScreen(),
-          GamePhase.overtimeAnnounce => _buildOvertimeAnnounce(),
-          GamePhase.gameOver => _buildGameOverScreen(),
-        },
+        child: Stack(
+          children: [
+            switch (_phase) {
+              GamePhase.title => _buildTitleScreen(),
+              GamePhase.playing => _buildGameScreen(),
+              GamePhase.overtimeAnnounce => _buildOvertimeAnnounce(),
+              GamePhase.gameOver => _buildGameScreen(), // ゲームオーバー時も背景はゲーム画面
+            },
+            // ゲームオーバーモーダル
+            if (_showGameOverModal) _buildGameOverModal(),
+          ],
+        ),
       ),
     );
   }
@@ -408,11 +434,13 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
       child: Row(
         children: [
           // 悪魔の顔
-          SizedBox(
-            width: 80,
-            height: 80,
-            child: CustomPaint(
-              painter: DemonFacePainter(),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(40),
+            child: Image.asset(
+              'assets/悪魔.jpg',
+              width: 80,
+              height: 80,
+              fit: BoxFit.cover,
             ),
           ),
           const SizedBox(width: 12),
@@ -483,14 +511,14 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
               Text(
                 'あなたの確保した文字（${playerChars.length}文字）',
                 style: const TextStyle(
-                  color: Color(0xFF2C662E),
+                  color: Color(0xFF026E14),
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
-                '❌${_session?.playerMistakeCount ?? 0}',
+                'お手付き${_session?.playerMistakeCount ?? 0}',
                 style: TextStyle(color: Colors.red[400], fontSize: 12),
               ),
             ],
@@ -508,14 +536,14 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
               Text(
                 '悪魔の確保した文字（${aiChars.length}文字）',
                 style: const TextStyle(
-                  color: Color(0xFF6e0202),
+                  color: Color(0xFFC70606),
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
-                '❌${_session?.aiMistakeCount ?? 0}',
+                'お手付き${_session?.aiMistakeCount ?? 0}',
                 style: TextStyle(color: Colors.red[400], fontSize: 12),
               ),
             ],
@@ -751,104 +779,130 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
 
   /// ゲームオーバー画面
   Widget _buildGameOverScreen() {
+    // 後方互換のため残すが、モーダルを使用
+    return _buildGameScreen();
+  }
+
+  /// ゲームオーバーモーダル
+  Widget _buildGameOverModal() {
     final isPlayerWin = _winner == 'player';
     
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: isPlayerWin
-              ? [const Color(0xFF1B5E20), const Color(0xFF1E1E1E)]
-              : [const Color(0xFF8B0000), const Color(0xFF1E1E1E)],
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: isPlayerWin
+                ? [const Color(0xFF1B5E20), const Color(0xFF2D2D2D)]
+                : [const Color(0xFF8B0000), const Color(0xFF2D2D2D)],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: const Color(0xFFD4AF37),
+            width: 2,
+          ),
         ),
-      ),
-      child: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              isPlayerWin ? '🎉' : '👿',
-              style: const TextStyle(fontSize: 64),
+            // 悪魔の顔
+            ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: Image.asset(
+                'assets/悪魔.jpg',
+                width: 100,
+                height: 100,
+                fit: BoxFit.cover,
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Text(
               isPlayerWin ? 'あなたの勝利！' : '悪魔の勝利',
               style: const TextStyle(
-                fontSize: 36,
+                fontSize: 28,
                 color: Color(0xFFD4AF37),
                 fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 12),
+            Text(
+              _demonMessage,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[300],
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            
+            // 再戦ボタン（レベル選択）
+            const Text(
+              '再戦する',
+              style: TextStyle(
+                color: Color(0xFFD4AF37),
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildRematchButton('Lv.1', AiLevel.easy),
+                const SizedBox(width: 8),
+                _buildRematchButton('Lv.2', AiLevel.normal),
+                const SizedBox(width: 8),
+                _buildRematchButton('Lv.3', AiLevel.hard),
+              ],
+            ),
             const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
+            
+            // タイトルに戻るボタン
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _showGameOverModal = false;
+                  _phase = GamePhase.title;
+                });
+              },
               child: Text(
-                _demonMessage,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[300],
-                  fontStyle: FontStyle.italic,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: 48),
-            
-            // スコア
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2D2D2D),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildScoreColumn(
-                    'あなた',
-                    _session?.playerCapturedChars.length ?? 0,
-                    _session?.playerMistakeCount ?? 0,
-                    const Color(0xFF4CAF50),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 60,
-                    color: Colors.grey[700],
-                    margin: const EdgeInsets.symmetric(horizontal: 24),
-                  ),
-                  _buildScoreColumn(
-                    '悪魔',
-                    _session?.aiCapturedChars.length ?? 0,
-                    _session?.aiMistakeCount ?? 0,
-                    const Color(0xFF8B0000),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 48),
-            
-            // リトライボタン
-            ElevatedButton(
-              onPressed: () => setState(() => _phase = GamePhase.title),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 48,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text(
-                'もう一度遊ぶ',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'タイトルに戻る',
+                style: TextStyle(color: Colors.grey[400]),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 再戦ボタン
+  Widget _buildRematchButton(String label, AiLevel level) {
+    final isSelected = _selectedLevel == level;
+    return ElevatedButton(
+      onPressed: () => _startGame(level: level),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isSelected 
+            ? const Color(0xFFD4AF37) 
+            : const Color(0xFF3D3D3D),
+        foregroundColor: isSelected ? Colors.black : Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: isSelected 
+                ? const Color(0xFFD4AF37) 
+                : Colors.grey[600]!,
+          ),
+        ),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -893,6 +947,10 @@ enum GamePhase {
 
 /// 悪魔の顔を描画するカスタムペインター（添付画像準拠）
 class DemonFacePainter extends CustomPainter {
+  final bool isWin;
+  
+  DemonFacePainter({this.isWin = true});
+  
   @override
   void paint(Canvas canvas, Size size) {
     final centerX = size.width / 2;
@@ -1076,5 +1134,5 @@ class DemonFacePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant DemonFacePainter oldDelegate) => oldDelegate.isWin != isWin;
 }

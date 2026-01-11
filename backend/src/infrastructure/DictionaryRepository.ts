@@ -10,10 +10,6 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-interface DictionaryEntry {
-  word: string;
-}
-
 /** 辞書データ（メモリ上にキャッシュ） */
 let dictionary: Set<string> | null = null;
 /** 前方一致検索用のインデックス */
@@ -27,7 +23,7 @@ function ensureLoaded(): void {
     return;
   }
 
-  const dictPath = path.resolve(__dirname, "../../..", "dictionary.json");
+  const dictPath = path.resolve(__dirname, "../../..", "shiritori_list.json");
 
   if (!fs.existsSync(dictPath)) {
     console.warn(`辞書ファイルが見つかりません: ${dictPath}`);
@@ -37,14 +33,14 @@ function ensureLoaded(): void {
   }
 
   const raw = fs.readFileSync(dictPath, "utf-8");
-  const entries: DictionaryEntry[] = JSON.parse(raw);
+  // shiritori_list.json は単純な文字列配列 ["あい", "あいあい", ...]
+  const words: string[] = JSON.parse(raw);
 
-  dictionary = new Set(entries.map((e) => e.word));
+  dictionary = new Set(words);
   prefixIndex = new Map();
 
   // 前方一致インデックスを構築（1文字目でグループ化）
-  for (const entry of entries) {
-    const word = entry.word;
+  for (const word of words) {
     if (word.length === 0) continue;
 
     // 1文字目を正規化（小文字→大文字）
