@@ -447,3 +447,26 @@ function processAiTurn(
 
   return { word, isValid: true, message, capturedChars };
 }
+
+/**
+ * AI先攻時の最初のターンを処理
+ */
+export function processAiFirstTurn(sessionId: string): {
+  session: GameSession;
+  aiResult: NonNullable<TurnResult["aiResult"]>;
+} | null {
+  const session = getSession(sessionId);
+  if (!session) return null;
+
+  // AIのターンを処理
+  const aiResult = processAiTurn(session);
+
+  // AIが有効な単語を出した場合、プレイヤーのターンに切り替え
+  if (aiResult.isValid) {
+    session.currentTurn = "player";
+    session.turnStartedAt = new Date();
+  }
+
+  updateSession(session);
+  return { session, aiResult };
+}

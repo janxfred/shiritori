@@ -158,11 +158,17 @@ class CreateGameResponse {
   final GameSession session;
   final String message;
   final int dictionarySize;
+  final String? startChar;
+  final String? firstTurn;
+  final TurnResult? aiFirstWord;
 
   CreateGameResponse({
     required this.session,
     required this.message,
     required this.dictionarySize,
+    this.startChar,
+    this.firstTurn,
+    this.aiFirstWord,
   });
 
   factory CreateGameResponse.fromJson(Map<String, dynamic> json) {
@@ -170,6 +176,11 @@ class CreateGameResponse {
       session: GameSession.fromJson(json['session'] as Map<String, dynamic>),
       message: json['message'] as String,
       dictionarySize: json['dictionarySize'] as int,
+      startChar: json['startChar'] as String?,
+      firstTurn: json['firstTurn'] as String?,
+      aiFirstWord: json['aiFirstWord'] != null
+          ? TurnResult.fromJson(json['aiFirstWord'] as Map<String, dynamic>)
+          : null,
     );
   }
 }

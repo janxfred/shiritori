@@ -48,11 +48,23 @@ export const createGameRequestSchema = z.object({
   aiLevel: aiLevelSchema.optional().default(3),
 });
 
+/** ターン結果 */
+const turnResultSchema = z.object({
+  word: z.string(),
+  isValid: z.boolean(),
+  message: z.string(),
+  capturedChars: z.array(z.string()),
+  timeExpired: z.boolean().optional(),
+});
+
 /** ゲーム開始レスポンス */
 export const createGameResponseSchema = z.object({
   session: sessionSchema,
   message: z.string(),
   dictionarySize: z.number(),
+  startChar: z.string().optional(),
+  firstTurn: z.enum(["player", "ai"]).optional(),
+  aiFirstWord: turnResultSchema.optional(),
 });
 
 /** ゲーム状態レスポンス */
@@ -63,15 +75,6 @@ export const gameStateResponseSchema = z.object({
 /** 単語送信リクエスト */
 export const submitWordRequestSchema = z.object({
   word: z.string().min(1, "単語を入力してください"),
-});
-
-/** ターン結果 */
-const turnResultSchema = z.object({
-  word: z.string(),
-  isValid: z.boolean(),
-  message: z.string(),
-  capturedChars: z.array(z.string()),
-  timeExpired: z.boolean().optional(),
 });
 
 /** 単語送信レスポンス */

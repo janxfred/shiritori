@@ -55,22 +55,41 @@ const sessions = new Map<string, GameSession>();
 /** セッション有効期限（1時間） */
 const SESSION_TTL_MS = 60 * 60 * 1000;
 
+/** しりとりで使用可能なひらがな（開始文字用） */
+const HIRAGANA_START_CHARS = [
+  "あ", "い", "う", "え", "お",
+  "か", "き", "く", "け", "こ",
+  "さ", "し", "す", "せ", "そ",
+  "た", "ち", "つ", "て", "と",
+  "な", "に", "ぬ", "ね", "の",
+  "は", "ひ", "ふ", "へ", "ほ",
+  "ま", "み", "む", "め", "も",
+  "や", "ゆ", "よ",
+  "ら", "り", "る", "れ", "ろ",
+  "わ",
+];
+
 /**
  * 新しいゲームセッションを作成
  */
 export function createSession(aiLevel: AiLevel = 3): GameSession {
   const now = new Date();
+  // 先攻をランダムに決定
+  const firstTurn = Math.random() < 0.5 ? "player" : "ai";
+  // 冒頭のひらがなをランダムに指定
+  const startChar = HIRAGANA_START_CHARS[Math.floor(Math.random() * HIRAGANA_START_CHARS.length)];
+  
   const session: GameSession = {
     id: uuidv4(),
     status: "playing",
-    currentTurn: "player",
+    currentTurn: firstTurn,
     playerMistakeCount: 0,
     aiMistakeCount: 0,
     playerCapturedChars: new Set(),
     aiCapturedChars: new Set(),
     usedWords: new Set(),
     lastWord: null,
-    expectedStartChar: null,
+    expectedStartChar: startChar,
     turnCount: 0,
     roundCount: 0,
     history: [],

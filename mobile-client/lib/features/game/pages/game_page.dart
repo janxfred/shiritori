@@ -8,7 +8,7 @@ import '../models/game_models.dart';
 const int timeLimitMs = 2 * 60 * 1000;
 
 /// AIの応答遅延（ミリ秒）
-const int aiResponseDelayMs = 1500;
+const int aiResponseDelayMs = 2000;
 
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
@@ -120,11 +120,24 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
         _remainingTime = timeLimitMs;
         _phase = GamePhase.playing;
         _lastPlayerResult = null;
-        _lastAiResult = null;
+        _lastAiResult = response.aiFirstWord;
         _winner = null;
         _showGameOverModal = false;
         _selectedLevel = aiLevel;
       });
+      
+      // AI先攻の場合、AIの返答を2秒後に表示
+      if (response.aiFirstWord != null) {
+        setState(() {
+          _isAiThinking = true;
+        });
+        await Future.delayed(const Duration(milliseconds: aiResponseDelayMs));
+        setState(() {
+          _isAiThinking = false;
+          _demonMessage = response.aiFirstWord!.message;
+        });
+      }
+      
       _startTimer();
     } catch (e) {
       _showError('ゲーム開始エラー: $e');
@@ -789,8 +802,8 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     
     return Center(
       child: Container(
-        margin: const EdgeInsets.all(24),
-        padding: const EdgeInsets.all(24),
+        margin: const EdgeInsets.symmetric(horizontal: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -799,7 +812,7 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
                 ? [const Color(0xFF1B5E20), const Color(0xFF2D2D2D)]
                 : [const Color(0xFF8B0000), const Color(0xFF2D2D2D)],
           ),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: const Color(0xFFD4AF37),
             width: 2,
@@ -808,58 +821,36 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 悪魔の顔
-            ClipRRect(
-              borderRadius: BorderRadius.circular(50),
-              child: Image.asset(
-                'assets/悪魔.jpg',
-                width: 100,
-                height: 100,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(height: 16),
             Text(
               isPlayerWin ? 'あなたの勝利！' : '悪魔の勝利',
               style: const TextStyle(
-                fontSize: 28,
+                fontSize: 22,
                 color: Color(0xFFD4AF37),
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              _demonMessage,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[300],
-                fontStyle: FontStyle.italic,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             
             // 再戦ボタン（レベル選択）
             const Text(
               '再戦する',
               style: TextStyle(
-                color: Color(0xFFD4AF37),
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                color: Colors.white70,
+                fontSize: 14,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildRematchButton('Lv.1', AiLevel.easy),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 _buildRematchButton('Lv.2', AiLevel.normal),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 _buildRematchButton('Lv.3', AiLevel.hard),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             
             // タイトルに戻るボタン
             TextButton(
@@ -869,9 +860,14 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
                   _phase = GamePhase.title;
                 });
               },
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               child: Text(
                 'タイトルに戻る',
-                style: TextStyle(color: Colors.grey[400]),
+                style: TextStyle(color: Colors.grey[400], fontSize: 12),
               ),
             ),
           ],
@@ -890,9 +886,10 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
             ? const Color(0xFFD4AF37) 
             : const Color(0xFF3D3D3D),
         foregroundColor: isSelected ? Colors.black : Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        minimumSize: Size.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
           side: BorderSide(
             color: isSelected 
                 ? const Color(0xFFD4AF37) 

@@ -3,7 +3,7 @@
  * 悪魔的しりとりのAPI エンドポイント
  */
 
-import { checkTimeLimit, processTurn } from "../../application/ProcessTurnUseCase";
+import { checkTimeLimit, processAiFirstTurn, processTurn } from "../../application/ProcessTurnUseCase";
 import { getRandomMessage } from "../../domain/constants/DemonMessages";
 import type { AiLevel } from "../../domain/services/AiBrainService";
 import { getDictionarySize } from "../../infrastructure/DictionaryRepository";
@@ -44,12 +44,33 @@ export default async function (fastify: ServerInstance) {
     async (request, reply) => {
       const { aiLevel } = request.body;
       const session = createSession(aiLevel as AiLevel);
-      const message = getRandomMessage("gameStart");
+      const startChar = session.expectedStartChar;
+      const firstTurn = session.currentTurn;
+
+      // AI先攻の場合は最初にAIが応答
+      if (firstTurn === "ai") {
+        const aiFirstResult = processAiFirstTurn(session.id);
+        if (aiFirstResult) {
+          const message = `『${startChar}』から始まるぞ。我が先攻だ！`;
+          return reply.status(201).send({
+            session: sessionToJson(aiFirstResult.session),
+            message,
+            dictionarySize: getDictionarySize(),
+            startChar,
+            firstTurn,
+            aiFirstWord: aiFirstResult.aiResult,
+          });
+        }
+      }
+
+      const message = `『${startChar}』から始まるぞ。汝が先攻だ！`;
 
       return reply.status(201).send({
         session: sessionToJson(session),
         message,
         dictionarySize: getDictionarySize(),
+        startChar,
+        firstTurn,
       });
     }
   );
