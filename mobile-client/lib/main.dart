@@ -3,12 +3,15 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'features/game/pages/game_page.dart';
 import 'features/users/pages/user_list_page.dart';
 import 'features/users/pages/user_detail_page.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  MobileAds.instance.initialize();
   runApp(const ProviderScope(child: MyApp()));
 }
 

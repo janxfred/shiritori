@@ -1,6 +1,7 @@
 /// 悪魔的しりとり ゲーム画面
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../api/game_api.dart';
 import '../models/game_models.dart';
 
@@ -43,6 +44,10 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
 
+  // バナー広告
+  BannerAd? _bannerAd;
+  bool _isBannerAdLoaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +58,28 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     _shakeAnimation = Tween<double>(begin: 0, end: 10).animate(
       CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
     );
+    _loadBannerAd();
+  }
+
+  /// バナー広告をロード
+  void _loadBannerAd() {
+    _bannerAd = BannerAd(
+      adUnitId: 'ca-app-pub-7752899951060344/2857416715',
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (ad) {
+          setState(() {
+            _isBannerAdLoaded = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          debugPrint('バナー広告のロードに失敗: $error');
+          ad.dispose();
+        },
+      ),
+    );
+    _bannerAd!.load();
   }
 
   @override
@@ -61,6 +88,7 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     _inputController.dispose();
     _historyScrollController.dispose();
     _shakeController.dispose();
+    _bannerAd?.dispose();
     super.dispose();
   }
 
@@ -280,16 +308,30 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
       body: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
-            switch (_phase) {
-              GamePhase.title => _buildTitleScreen(),
-              GamePhase.playing => _buildGameScreen(),
-              GamePhase.overtimeAnnounce => _buildOvertimeAnnounce(),
-              GamePhase.gameOver => _buildGameScreen(), // ゲームオーバー時も背景はゲーム画面
-            },
-            // ゲームオーバーモーダル
-            if (_showGameOverModal) _buildGameOverModal(),
+            // バナー広告（常に上部に表示）
+            if (_isBannerAdLoaded && _bannerAd != null)
+              SizedBox(
+                width: _bannerAd!.size.width.toDouble(),
+                height: _bannerAd!.size.height.toDouble(),
+                child: AdWidget(ad: _bannerAd!),
+              ),
+            // メインコンテンツ
+            Expanded(
+              child: Stack(
+                children: [
+                  switch (_phase) {
+                    GamePhase.title => _buildTitleScreen(),
+                    GamePhase.playing => _buildGameScreen(),
+                    GamePhase.overtimeAnnounce => _buildOvertimeAnnounce(),
+                    GamePhase.gameOver => _buildGameScreen(), // ゲームオーバー時も背景はゲーム画面
+                  },
+                  // ゲームオーバーモーダル
+                  if (_showGameOverModal) _buildGameOverModal(),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -864,6 +906,21 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
   /// ゲームオーバーモーダル
   Widget _buildGameOverModal() {
     final isPlayerWin = _winner == 'player';
+    final isDraw = _winner == null;
+    
+    // 結果に応じた色とメッセージ
+    List<Color> gradientColors;
+    String resultMessage;
+    if (isDraw) {
+      gradientColors = [const Color(0xFF4A4A4A), const Color(0xFF2D2D2D)];
+      resultMessage = '引き分け';
+    } else if (isPlayerWin) {
+      gradientColors = [const Color(0xFF1B5E20), const Color(0xFF2D2D2D)];
+      resultMessage = 'あなたの勝利！';
+    } else {
+      gradientColors = [const Color(0xFF8B0000), const Color(0xFF2D2D2D)];
+      resultMessage = '悪魔の勝利';
+    }
     
     return Center(
       child: Container(
@@ -873,9 +930,7 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: isPlayerWin
-                ? [const Color(0xFF1B5E20), const Color(0xFF2D2D2D)]
-                : [const Color(0xFF8B0000), const Color(0xFF2D2D2D)],
+            colors: gradientColors,
           ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
@@ -887,7 +942,7 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              isPlayerWin ? 'あなたの勝利！' : '悪魔の勝利',
+              resultMessage,
               style: const TextStyle(
                 fontSize: 22,
                 color: Color(0xFFD4AF37),

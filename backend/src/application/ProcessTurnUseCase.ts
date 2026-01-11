@@ -258,20 +258,17 @@ function checkRoundEnd(
         winner: "ai",
       };
     } else {
-      // 同点 → 延長戦開始
-      session.isOvertime = true;
-      session.overtimePlayerCharsAtStart = playerChars;
-      session.overtimeAiCharsAtStart = aiChars;
-      session.turnStartedAt = new Date();
-      const message = getRandomMessage("overtime");
+      // 同点 → 引き分け
+      session.status = "draw";
+      const message = "引き分けだ…互角の戦いだったな。";
       updateSession(session);
       return {
         success: true,
         session,
         playerResult,
         aiResult: { ...aiResult, message },
-        gameOver: false,
-        overtimeStarted: true,
+        gameOver: true,
+        winner: undefined,
       };
     }
   }
