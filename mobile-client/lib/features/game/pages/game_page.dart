@@ -410,7 +410,8 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
                     '• お手つき2回で即敗北\n'
                     '• 制限時間 2分（1ターンごと）\n'
                     '• 10ラウンドで決着\n'
-                    '• 小さい文字は大きい文字と同一とみなす\n',
+                    '• 小さい文字は大きい文字と同一とみなす\n'
+                    '• 互いに悪魔辞書にある単語のみ使用可能\n',
                     style: TextStyle(
                       color: Colors.grey[300],
                       fontSize: 14,
