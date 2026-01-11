@@ -4,6 +4,7 @@ import 'l10n/generated/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'features/game/pages/game_page.dart';
 import 'features/users/pages/user_list_page.dart';
 import 'features/users/pages/user_detail_page.dart';
 
@@ -12,8 +13,12 @@ void main() {
 }
 
 final _router = GoRouter(
-  initialLocation: '/users',
+  initialLocation: '/',
   routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const GamePage(),
+    ),
     GoRoute(
       path: '/users',
       builder: (context, state) => const UserListPage(),
@@ -34,9 +39,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Mobile Client',
+      title: '悪魔的しりとり',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF8B0000),
+          brightness: Brightness.dark,
+        ),
+        scaffoldBackgroundColor: const Color(0xFF1E1E1E),
         useMaterial3: true,
       ),
       localizationsDelegates: const [
