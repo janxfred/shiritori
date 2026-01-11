@@ -336,7 +336,49 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
                 color: Colors.grey[400],
               ),
             ),
-            const SizedBox(height: 60),
+            const SizedBox(height: 32),
+            
+            // ルール説明
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 32),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2D2D2D).withOpacity(0.8),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[700]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Center(
+                    child: Text(
+                      '【ルール】',
+                      style: TextStyle(
+                        color: Color(0xFFD4AF37),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '• 初めて使った文字を「確保」する\n'
+                    '• 相手の確保文字は使用不可\n'
+                    '• 確保文字が少ない方が勝利\n'
+                    '• お手つき2回で即敗北\n'
+                    '• 制限時間 2分（1ターンごと）\n'
+                    '• 10ラウンドで決着\n'
+                    '• 小さい文字は大きい文字と同一とみなす\n',
+                    style: TextStyle(
+                      color: Colors.grey[300],
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
             
             // レベル選択
             Text(
@@ -674,6 +716,30 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
                   ),
                 ),
               ),
+            // タイトルに戻るボタン
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () {
+                  _timer?.cancel();
+                  setState(() {
+                    _phase = GamePhase.title;
+                    _session = null;
+                    _showGameOverModal = false;
+                  });
+                },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'タイトルに戻る',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
