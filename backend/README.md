@@ -1,6 +1,6 @@
 # Backend Template
 
-開発合宿用のFastifyバックエンドテンプレート
+開発合宿用の Fastify バックエンドテンプレート
 
 ## 技術スタック
 
@@ -55,53 +55,56 @@ backend/
 
 ### User API
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | /api/user | ユーザー一覧取得 |
-| GET | /api/user/:userId | ユーザー詳細取得 |
-| POST | /api/user | ユーザー作成 |
-| PUT | /api/user/:userId | ユーザー更新 |
-| DELETE | /api/user/:userId | ユーザー削除 |
+| Method | Path              | Description      |
+| ------ | ----------------- | ---------------- |
+| GET    | /api/user         | ユーザー一覧取得 |
+| GET    | /api/user/:userId | ユーザー詳細取得 |
+| POST   | /api/user         | ユーザー作成     |
+| PUT    | /api/user/:userId | ユーザー更新     |
+| DELETE | /api/user/:userId | ユーザー削除     |
 
 ## 開発ガイド
 
-### 新しいAPIを追加する
+### 新しい API を追加する
 
-1. `src/model/` にZodスキーマを追加
+1. `src/model/` に Zod スキーマを追加
 2. `src/controller/` にディレクトリを作成
-3. `schema.ts` でAPIスキーマを定義
+3. `schema.ts` で API スキーマを定義
 4. `controller.ts` でハンドラーを実装
-5. 必要に応じて `hook.ts` でpreHandlerを追加
+5. 必要に応じて `hook.ts` で preHandler を追加
 
-### RORO原則
+### RORO 原則
 
 全ての関数はオブジェクト形式で引数を受け取り、オブジェクト形式で返す:
 
 ```typescript
 // Good
-function calculatePagination(params: { page: number; limit: number }): { skip: number; take: number } {
-  const { page, limit } = params
-  return { skip: (page - 1) * limit, take: limit }
+function calculatePagination(params: { page: number; limit: number }): {
+  skip: number;
+  take: number;
+} {
+  const { page, limit } = params;
+  return { skip: (page - 1) * limit, take: limit };
 }
 
 // Bad
 function calculatePagination(page: number, limit: number): [number, number] {
-  return [(page - 1) * limit, limit]
+  return [(page - 1) * limit, limit];
 }
 ```
 
 ## スクリプト
 
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | 開発サーバー起動 |
-| `npm run build` | TypeScriptビルド |
-| `npm run db:generate` | Prismaクライアント生成 |
-| `npm run db:migrate` | マイグレーション実行 |
-| `npm run db:seed` | シードデータ投入 |
-| `npm run lint` | Lintチェック |
-| `npm run lint:fix` | Lint自動修正 |
+| Script                | Description             |
+| --------------------- | ----------------------- |
+| `npm run dev`         | 開発サーバー起動        |
+| `npm run build`       | TypeScript ビルド       |
+| `npm run db:generate` | Prisma クライアント生成 |
+| `npm run db:migrate`  | マイグレーション実行    |
+| `npm run db:seed`     | シードデータ投入        |
+| `npm run lint`        | Lint チェック           |
+| `npm run lint:fix`    | Lint 自動修正           |
 
 ## API ドキュメント
 
-開発環境では `/docs` でSwagger UIにアクセス可能
+開発環境では `/docs` で Swagger UI にアクセス可能
