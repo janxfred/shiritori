@@ -1,6 +1,6 @@
 # Mobile Client
 
-Flutterで構築されたモバイルアプリケーションテンプレート。
+Flutter で構築されたモバイルアプリケーションテンプレート。
 
 ## セットアップ
 
@@ -10,11 +10,11 @@ flutter pub get
 flutter gen-l10n
 ```
 
-## iOSシミュレータのセットアップ
+## iOS シミュレータのセットアップ
 
-### 1. Xcodeのインストール
+### 1. Xcode のインストール
 
-App StoreからXcodeをインストールします。
+App Store から Xcode をインストールします。
 
 ```bash
 # コマンドラインツールのインストール
@@ -24,7 +24,7 @@ xcode-select --install
 sudo xcodebuild -license accept
 ```
 
-### 2. iOSシミュレータの起動
+### 2. iOS シミュレータの起動
 
 ```bash
 # シミュレータを開く
@@ -37,7 +37,7 @@ flutter devices
 xcrun simctl boot "iPhone 15"
 ```
 
-### 3. iOSシミュレータでアプリを実行
+### 3. iOS シミュレータでアプリを実行
 
 ```bash
 # 利用可能なデバイスを確認
@@ -50,9 +50,9 @@ flutter run -d "iPhone 15"
 flutter run
 ```
 
-### CocoaPodsのセットアップ
+### CocoaPods のセットアップ
 
-iOS依存関係の管理にCocoaPodsが必要です。
+iOS 依存関係の管理に CocoaPods が必要です。
 
 ```bash
 # CocoaPodsのインストール
@@ -84,8 +84,27 @@ flutter build apk     # Android
 flutter build ios     # iOS
 ```
 
+## Google Play Console（AAB）
+
+Google Play Console にアップロードする場合は、Android App Bundle（`.aab`）を生成します。
+
+```bash
+cd mobile-client
+
+# Release用AAB
+cd android
+./gradlew bundleRelease
+```
+
+生成物:
+
+- `mobile-client/build/app/outputs/bundle/release/app-release.aab`
+- （このリポジトリでは）`mobile-client/release/akumateki-shiritori.aab`
+
+※更新リリース時は `pubspec.yaml` の `version: x.y.z+N` の `N`（versionCode）を増やしてください。
+
 複数のデバイスが接続されている場合、`flutter run` でデバイス選択を求められます。
-`-d` オプションでデバイスIDまたはデバイス名を指定してください。
+`-d` オプションでデバイス ID またはデバイス名を指定してください。
 
 ## ディレクトリ構成
 
@@ -125,15 +144,15 @@ Text(l10n.userList);
 
 ## 技術スタック
 
-| カテゴリ | ライブラリ |
-|---------|-----------|
-| 状態管理 | flutter_riverpod |
-| ルーティング | go_router |
-| API通信 | dio |
+| カテゴリ             | ライブラリ            |
+| -------------------- | --------------------- |
+| 状態管理             | flutter_riverpod      |
+| ルーティング         | go_router             |
+| API 通信             | dio                   |
 | ローカライゼーション | flutter_localizations |
 
-## API設定
+## API 設定
 
-デフォルトのベースURLは `http://10.0.2.2:3000`（Androidエミュレータ用）です。
+デフォルトのベース URL は `http://10.0.2.2:3000`（Android エミュレータ用）です。
 
-iOSシミュレータの場合は `lib/core/api/api_client.dart` で `localhost` に変更してください。
+iOS シミュレータの場合は `lib/core/api/api_client.dart` で `localhost` に変更してください。

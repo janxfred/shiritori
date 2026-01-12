@@ -64,7 +64,7 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
   /// バナー広告をロード
   void _loadBannerAd() {
     _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-7752899951060344/2857416715',
+      adUnitId: 'ca-app-pub-3940256099942544/6300978111',
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(

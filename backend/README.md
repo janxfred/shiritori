@@ -24,6 +24,9 @@ npm run db:migrate
 
 # 開発サーバー起動
 npm run dev
+
+# ファイル変更を監視して自動再起動したい場合
+npm run dev:watch
 ```
 
 ## ディレクトリ構成
