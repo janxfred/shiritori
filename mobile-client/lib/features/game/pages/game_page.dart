@@ -1,4 +1,4 @@
-/// 悪魔的しりとり ゲーム画面
+// 悪魔的しりとり ゲーム画面
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -29,8 +29,6 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
   String _demonMessage = '';
   bool _isSubmitting = false;
   bool _isAiThinking = false;
-  TurnResult? _lastPlayerResult;
-  TurnResult? _lastAiResult;
   String? _winner;
   AiLevel _selectedLevel = AiLevel.normal;
   int _remainingTime = timeLimitMs;
@@ -147,8 +145,6 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
         _demonMessage = response.message;
         _remainingTime = timeLimitMs;
         _phase = GamePhase.playing;
-        _lastPlayerResult = null;
-        _lastAiResult = response.aiFirstWord;
         _winner = null;
         _showGameOverModal = false;
         _selectedLevel = aiLevel;
@@ -186,7 +182,6 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
       
       setState(() {
         _session = response.session;
-        _lastPlayerResult = response.playerResult;
         _inputController.clear();
       });
 
@@ -228,7 +223,6 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
       // AIの結果
       if (response.aiResult != null) {
         setState(() {
-          _lastAiResult = response.aiResult;
           _demonMessage = response.aiResult!.message;
           _isAiThinking = false;
         });
@@ -385,7 +379,7 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
               margin: const EdgeInsets.symmetric(horizontal: 32),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF2D2D2D).withOpacity(0.8),
+                color: const Color(0xFF2D2D2D).withValues(alpha: 204),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey[700]!),
               ),
@@ -694,8 +688,8 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: isPlayer
-                  ? const Color(0xFF1B5E20).withOpacity(0.8)
-                  : const Color(0xFF8B0000).withOpacity(0.8),
+                  ? const Color(0xFF1B5E20).withValues(alpha: 204)
+                  : const Color(0xFF8B0000).withValues(alpha: 204),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: entry.isValid
@@ -898,12 +892,6 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
     );
   }
 
-  /// ゲームオーバー画面
-  Widget _buildGameOverScreen() {
-    // 後方互換のため残すが、モーダルを使用
-    return _buildGameScreen();
-  }
-
   /// ゲームオーバーモーダル
   Widget _buildGameOverModal() {
     final isPlayerWin = _winner == 'player';
@@ -1024,63 +1012,6 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
       ),
     );
   }
-
-  /// 再戦ボタン（タイトル画面用）
-  Widget _buildRematchButton(String label, AiLevel level) {
-    final isSelected = _selectedLevel == level;
-    return ElevatedButton(
-      onPressed: () => _startGame(level: level),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isSelected 
-            ? const Color(0xFFD4AF37) 
-            : const Color(0xFF3D3D3D),
-        foregroundColor: isSelected ? Colors.black : Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        minimumSize: Size.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(6),
-          side: BorderSide(
-            color: isSelected 
-                ? const Color(0xFFD4AF37) 
-                : Colors.grey[600]!,
-          ),
-        ),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Widget _buildScoreColumn(String label, int chars, int mistakes, Color color) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(color: Colors.grey[400], fontSize: 14),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '$chars',
-          style: TextStyle(
-            color: color,
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          '文字',
-          style: TextStyle(color: Colors.grey[500], fontSize: 12),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '❌$mistakes',
-          style: TextStyle(color: Colors.red[400], fontSize: 14),
-        ),
-      ],
-    );
-  }
 }
 
 /// ゲームフェーズ
@@ -1136,7 +1067,7 @@ class DemonFacePainter extends CustomPainter {
 
     // 頬っぺた（左）
     final cheekPaint = Paint()
-      ..color = pinkColor.withOpacity(0.7)
+      ..color = pinkColor.withValues(alpha: 179)
       ..style = PaintingStyle.fill;
     canvas.drawOval(
       Rect.fromCenter(
@@ -1160,57 +1091,19 @@ class DemonFacePainter extends CustomPainter {
     _drawMouthWithFang(canvas, centerX, centerY + radius * 0.4, radius, grayColor);
   }
 
-  void _drawHorn(Canvas canvas, double x, double y, bool isLeft, Color color) {
-    final hornPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final direction = isLeft ? -1.0 : 1.0;
-    final path = Path();
-    
-    // 三角形の角
-    path.moveTo(x - 6 * direction, y + 15);
-    path.lineTo(x + 2 * direction, y - 12);
-    path.lineTo(x + 10 * direction, y + 15);
-    path.close();
-
-    canvas.drawPath(path, hornPaint);
-
-    final hornOutline = Paint()
-      ..color = const Color(0xFF5A5A5A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-    canvas.drawPath(path, hornOutline);
-  }
-
   void _drawWing(Canvas canvas, double x, double y, bool isLeft, Color color) {
     final wingPaint = Paint()
       ..color = color
-      ..style = PaintingStyle.fill;
-
-    final direction = isLeft ? -1.0 : 1.0;
-    final path = Path();
-    
-    // コウモリ羽（3つの波）
-    path.moveTo(x, y + 10);
-    // 下の波
-    path.quadraticBezierTo(x + direction * 12, y + 15, x + direction * 18, y + 8);
-    // 中の波
-    path.quadraticBezierTo(x + direction * 22, y + 2, x + direction * 26, y - 2);
-    // 上の波
-    path.quadraticBezierTo(x + direction * 28, y - 10, x + direction * 22, y - 15);
-    // 戻り
-    path.quadraticBezierTo(x + direction * 15, y - 8, x + direction * 10, y - 5);
-    path.quadraticBezierTo(x + direction * 5, y, x, y + 5);
-    path.close();
-
-    canvas.drawPath(path, wingPaint);
-
-    final wingOutline = Paint()
-      ..color = const Color(0xFF5A5A5A)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-    canvas.drawPath(path, wingOutline);
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round;
+
+    final dir = isLeft ? -1.0 : 1.0;
+    final path = Path();
+    path.moveTo(x, y);
+    path.quadraticBezierTo(x + dir * 18, y - 8, x + dir * 28, y + 6);
+    path.quadraticBezierTo(x + dir * 18, y + 2, x + dir * 10, y + 16);
+    canvas.drawPath(path, wingPaint);
   }
 
   void _drawLeftEye(Canvas canvas, double x, double y, Color color) {
@@ -1231,6 +1124,28 @@ class DemonFacePainter extends CustomPainter {
     eyePath.moveTo(x - 6, y + 2);
     eyePath.quadraticBezierTo(x, y - 4, x + 6, y);
     canvas.drawPath(eyePath, eyePaint);
+  }
+
+  void _drawHorn(Canvas canvas, double x, double y, bool isLeft, Color color) {
+    final hornFill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final hornStroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+
+    final dir = isLeft ? -1.0 : 1.0;
+    final path = Path();
+    path.moveTo(x, y);
+    path.quadraticBezierTo(x + dir * 6, y - 18, x + dir * 16, y - 8);
+    path.quadraticBezierTo(x + dir * 8, y - 2, x, y);
+    path.close();
+
+    canvas.drawPath(path, hornFill);
+    canvas.drawPath(path, hornStroke);
   }
 
   void _drawRightEye(Canvas canvas, double x, double y, Color color) {

@@ -1,21 +1,12 @@
-/// ゲームAPIクライアント
+// ゲームAPIクライアント
 import 'package:dio/dio.dart';
 import '../models/game_models.dart';
+import '../../../core/api/api_client.dart';
 
 class GameApi {
   final Dio _dio;
-  
-  // Androidエミュレータから localhost にアクセスする場合は 10.0.2.2 を使用
-  static const String _baseUrl = 'http://10.0.2.2:3002';
 
-  GameApi() : _dio = Dio(BaseOptions(
-    baseUrl: _baseUrl,
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  ));
+  GameApi() : _dio = ApiClient().dio;
 
   /// 新しいゲームを開始
   Future<CreateGameResponse> startGame({AiLevel level = AiLevel.hard}) async {

@@ -40,9 +40,25 @@ async function buildApp() {
   app.setSerializerCompiler(serializerCompiler);
 
   // CORSの設定
+  const corsAllowAll = process.env.CORS_ALLOW_ALL === "true";
+
   await app.register(fastifyCors, {
-    origin:
-      process.env.NODE_ENV === "production" ? process.env.CORS_ORIGIN : true,
+    origin: (origin, cb) => {
+      // モバイルアプリはブラウザCORSの対象外で、Originヘッダが無いことが多い。
+      // ここで弾くとモバイルからのアクセスを阻害するため、Originなしは許可する。
+      if (!origin) return cb(null, true);
+
+      if (process.env.NODE_ENV !== "production") return cb(null, true);
+
+      // productionでも全オリジン許可（モバイル向け / 必要に応じて利用）
+      if (corsAllowAll) return cb(null, true);
+
+      const allowedOrigin = process.env.CORS_ORIGIN;
+      if (!allowedOrigin) return cb(null, true);
+      if (allowedOrigin === "*") return cb(null, true);
+
+      return cb(null, origin === allowedOrigin);
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
   });
@@ -91,6 +107,15 @@ async function buildApp() {
   // ヘルスチェックエンドポイント
   app.get("/health", async () => {
     return { status: "ok", timestamp: new Date().toISOString() };
+  });
+
+  // liveness / readiness（デプロイ・監視向け）
+  app.get("/health/live", async () => {
+    return { status: "ok" };
+  });
+
+  app.get("/health/ready", async () => {
+    return { status: "ok" };
   });
 
   return app;

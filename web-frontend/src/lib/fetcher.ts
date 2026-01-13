@@ -1,8 +1,8 @@
-import { z } from 'zod';
-import { ApiError } from './api-error';
-import { errorResponseSchema } from '@/schemas/error-response.schema';
+import { z } from "zod";
+import { ApiError } from "./api-error";
+import { errorResponseSchema } from "@/schemas/error-response.schema";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
 
 type FetchOptions = {
   method?: string;
@@ -28,7 +28,7 @@ export async function fetcher<T>(
 
   if (options?.body) {
     fetchOptions.headers = {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...fetchOptions.headers,
     };
     fetchOptions.body = JSON.stringify(options.body);
@@ -44,7 +44,10 @@ export async function fetcher<T>(
       throw new ApiError(parsed.data.message, response.status);
     }
 
-    throw new ApiError(`Request failed (HTTP ${response.status})`, response.status);
+    throw new ApiError(
+      `Request failed (HTTP ${response.status})`,
+      response.status
+    );
   }
 
   // 204 No Content の場合は空オブジェクトを返す
@@ -56,8 +59,8 @@ export async function fetcher<T>(
 
   const result = schema.safeParse(json);
   if (!result.success) {
-    console.error('Response validation failed:', result.error);
-    throw new Error('Response does not match expected schema');
+    console.error("Response validation failed:", result.error);
+    throw new Error("Response does not match expected schema");
   }
 
   return result.data;

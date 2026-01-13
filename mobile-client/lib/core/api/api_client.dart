@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
@@ -8,6 +10,11 @@ class ApiClient {
   late final Dio _dio;
 
   static String get _baseUrl {
+    final fromEnv = dotenv.env['API_BASE_URL']?.trim();
+    if (fromEnv != null && fromEnv.isNotEmpty) {
+      return fromEnv;
+    }
+
     // エミュレータからlocalhostへアクセスする場合:
     // Android: 10.0.2.2
     // iOS Simulator: localhost
@@ -33,14 +40,14 @@ class ApiClient {
     // エラーログのみ出力するインターセプター
     _dio.interceptors.add(InterceptorsWrapper(
       onError: (error, handler) {
-        print('[API Error] ${error.requestOptions.method} ${error.requestOptions.uri}');
-        print('[API Error] ${error.type}: ${error.message}');
-        if (error.response != null) {
-          print('[API Error] Status: ${error.response?.statusCode}');
-          print('[API Error] Body: ${error.response?.data}');
-        }
-        if (error.stackTrace != null) {
-          print('[API Error] Stack: ${error.stackTrace}');
+        if (kDebugMode) {
+          stderr.writeln('[API Error] ${error.requestOptions.method} ${error.requestOptions.uri}');
+          stderr.writeln('[API Error] ${error.type}: ${error.message}');
+          if (error.response != null) {
+            stderr.writeln('[API Error] Status: ${error.response?.statusCode}');
+            stderr.writeln('[API Error] Body: ${error.response?.data}');
+          }
+          stderr.writeln('[API Error] Stack: ${error.stackTrace}');
         }
         handler.next(error);
       },

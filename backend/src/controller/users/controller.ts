@@ -1,4 +1,4 @@
-import { prisma } from "../../database";
+import { getPrisma, isDatabaseConfigured } from "../../database";
 import { type ServerInstance } from "../../lib/fastify";
 import {
   buildPaginationResponse,
@@ -40,11 +40,21 @@ export default async function (fastify: ServerInstance) {
         querystring: listUsersQuerySchema,
         response: {
           200: listUsersResponseSchema,
+          503: errorResponseSchema,
         },
       },
     },
     async (request, reply) => {
+      if (!isDatabaseConfigured()) {
+        return reply
+          .status(503)
+          .send({
+            message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+          });
+      }
+
       const { page, limit, search } = request.query;
+      const prisma = getPrisma();
 
       const { skip, take } = calculatePagination({ page, limit });
 
@@ -90,11 +100,21 @@ export default async function (fastify: ServerInstance) {
           201: commandResponseSchema,
           400: errorResponseSchema,
           409: errorResponseSchema,
+          503: errorResponseSchema,
         },
       },
     },
     async (request, reply) => {
+      if (!isDatabaseConfigured()) {
+        return reply
+          .status(503)
+          .send({
+            message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+          });
+      }
+
       const { email, name } = request.body;
+      const prisma = getPrisma();
 
       const existingUser = await prisma.user.findUnique({
         where: { email },

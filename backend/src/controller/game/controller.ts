@@ -3,7 +3,11 @@
  * 悪魔的しりとりのAPI エンドポイント
  */
 
-import { checkTimeLimit, processAiFirstTurn, processTurn } from "../../application/ProcessTurnUseCase";
+import {
+  checkTimeLimit,
+  processAiFirstTurn,
+  processTurn,
+} from "../../application/ProcessTurnUseCase";
 import { getRandomMessage } from "../../domain/constants/DemonMessages";
 import type { AiLevel } from "../../domain/services/AiBrainService";
 import { getDictionarySize } from "../../infrastructure/DictionaryRepository";
@@ -34,7 +38,8 @@ export default async function (fastify: ServerInstance) {
       schema: {
         tags: ["Game"],
         summary: "ゲーム開始",
-        description: "新しい悪魔的しりとりゲームを開始します。AIレベルを指定できます（1: 初級, 2: 中級, 3: 上級）。",
+        description:
+          "新しい悪魔的しりとりゲームを開始します。AIレベルを指定できます（1: 初級, 2: 中級, 3: 上級）。",
         body: createGameRequestSchema,
         response: {
           201: createGameResponseSchema,
@@ -44,14 +49,15 @@ export default async function (fastify: ServerInstance) {
     async (request, reply) => {
       const { aiLevel } = request.body;
       const session = createSession(aiLevel as AiLevel);
-      const startChar = session.expectedStartChar;
+      const startChar = session.expectedStartChar ?? undefined;
+      const startCharText = startChar ?? "？";
       const firstTurn = session.currentTurn;
 
       // AI先攻の場合は最初にAIが応答
       if (firstTurn === "ai") {
         const aiFirstResult = processAiFirstTurn(session.id);
         if (aiFirstResult) {
-          const message = `『${startChar}』から始まるぞ。我が先攻だ！`;
+          const message = `『${startCharText}』から始まるぞ。我が先攻だ！`;
           return reply.status(201).send({
             session: sessionToJson(aiFirstResult.session),
             message,
@@ -63,7 +69,7 @@ export default async function (fastify: ServerInstance) {
         }
       }
 
-      const message = `『${startChar}』から始まるぞ。汝が先攻だ！`;
+      const message = `『${startCharText}』から始まるぞ。汝が先攻だ！`;
 
       return reply.status(201).send({
         session: sessionToJson(session),
@@ -97,7 +103,9 @@ export default async function (fastify: ServerInstance) {
       const session = getSession(sessionId);
 
       if (!session) {
-        return reply.status(404).send({ message: "セッションが見つかりません" });
+        return reply
+          .status(404)
+          .send({ message: "セッションが見つかりません" });
       }
 
       return reply.send({
@@ -131,7 +139,9 @@ export default async function (fastify: ServerInstance) {
       const result = processTurn(sessionId, word);
 
       if (!result) {
-        return reply.status(404).send({ message: "セッションが見つかりません" });
+        return reply
+          .status(404)
+          .send({ message: "セッションが見つかりません" });
       }
 
       return reply.send({
@@ -154,7 +164,8 @@ export default async function (fastify: ServerInstance) {
       schema: {
         tags: ["Game"],
         summary: "制限時間チェック",
-        description: "プレイヤーの制限時間（2分）を超過しているかチェックします。",
+        description:
+          "プレイヤーの制限時間（2分）を超過しているかチェックします。",
         params: sessionIdParamsSchema,
         response: {
           200: checkTimeResponseSchema,
@@ -167,13 +178,17 @@ export default async function (fastify: ServerInstance) {
       const result = checkTimeLimit(sessionId);
 
       if (!result.session) {
-        return reply.status(404).send({ message: "セッションが見つかりません" });
+        return reply
+          .status(404)
+          .send({ message: "セッションが見つかりません" });
       }
 
       return reply.send({
         expired: result.expired,
         session: sessionToJson(result.session),
-        message: result.expired ? "時は金なり…汝は時を浪費した。敗北だ。" : undefined,
+        message: result.expired
+          ? "時は金なり…汝は時を浪費した。敗北だ。"
+          : undefined,
       });
     }
   );

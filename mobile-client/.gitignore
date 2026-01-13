@@ -31,7 +31,11 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+/release/
 /coverage/
+
+# Local env overrides (do not commit)
+.env.local
 
 # Symbolication related
 app.*.symbols

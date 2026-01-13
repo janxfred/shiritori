@@ -1,0 +1,23 @@
+# Keep Cloud Build uploads small
+**/node_modules/
+**/.next/
+**/out/
+**/.dart_tool/
+**/.gradle/
+**/.turbo/
+**/.cache/
+**/build/
+
+# Flutter/Android large outputs
+mobile-client/build/
+mobile-client/release/
+
+# iOS build outputs
+mobile-client/ios/Pods/
+mobile-client/ios/.symlinks/
+mobile-client/ios/Flutter/App.framework/
+mobile-client/ios/Flutter/Flutter.framework/
+mobile-client/ios/Flutter/engine/
+
+# Misc
+.DS_Store

@@ -1,0 +1,11 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-f"
+      - "backend/Dockerfile"
+      - "-t"
+      - "asia-northeast1-docker.pkg.dev/akumateki-shiritori/shiritori/shiritori-backend:latest"
+      - "."
+images:
+  - "asia-northeast1-docker.pkg.dev/akumateki-shiritori/shiritori/shiritori-backend:latest"

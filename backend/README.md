@@ -1,20 +1,28 @@
-# Backend Template
+# Backend
 
-開発合宿用の Fastify バックエンドテンプレート
+Fastify 製のバックエンド API。
 
 ## 技術スタック
 
-- **Framework:** Fastify 4.x
+- **Framework:** Fastify 5.x
 - **Language:** TypeScript 5.x
-- **ORM:** Prisma 5.x
+- **ORM:** Prisma 6.x
 - **Validation:** Zod
-- **Database:** MySQL
+- **Database:** PostgreSQL
+
+## このリポジトリでの役割
+
+- ゲーム API（`/api/game/*`）: インメモリのセッション（`src/infrastructure/GameSessionStore.ts`） + `shiritori_list.json` の辞書で動作
+- ユーザー API（`/api/users`）: Prisma + PostgreSQL のサンプル実装（`DATABASE_URL` が必要。未設定の場合は 503 を返します）
 
 ## セットアップ
 
 ```bash
 # 依存関係のインストール
 npm install
+
+# 環境変数（例から作成）
+cp .env.example .env
 
 # Prismaクライアント生成
 npm run db:generate
@@ -108,3 +116,40 @@ function calculatePagination(page: number, limit: number): [number, number] {
 ## API ドキュメント
 
 開発環境では `/docs` で Swagger UI にアクセス可能
+
+## 環境変数
+
+`backend/.env.example` を参照してください。
+
+## デプロイ（Cloud Run）
+
+このプロジェクトは `backend/Dockerfile` を Cloud Run 用に用意しています。
+
+- Docker build はリポジトリルートをコンテキストにして実行してください（例: `docker build -f backend/Dockerfile .`）
+- `shiritori_list.json` はコンテナ内に同梱され、ゲーム API の辞書として使われます
+
+本番で推奨する環境変数:
+
+- `NODE_ENV=production`
+- `CORS_ALLOW_ALL=true`（Flutter モバイルアプリ向け: CORS で拒否しない）
+- `DATABASE_URL=<supabase-postgres-url>`（ユーザー API を使う場合）
+
+`DATABASE_URL` はパスワードを含むため、Cloud Run には Secret Manager 経由で設定するのを推奨します。
+
+### Supabase（Postgres）にマイグレーションを当てる
+
+ユーザー API を使う場合、Supabase 側にテーブルを作る必要があります。
+
+```bash
+cd backend
+
+# Supabase の接続文字列（Settings -> Database -> Connection string）を設定
+export DATABASE_URL='postgresql://...'
+
+npm install
+npm run db:generate
+npm run db:migrate:deploy
+
+# 任意（サンプルユーザー投入）
+npm run db:seed
+```

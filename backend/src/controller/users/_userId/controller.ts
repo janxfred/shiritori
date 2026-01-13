@@ -1,4 +1,4 @@
-import { prisma } from "../../../database";
+import { getPrisma, isDatabaseConfigured } from "../../../database";
 import { type ServerInstance } from "../../../lib/fastify";
 import {
   commandResponseSchema,
@@ -38,11 +38,21 @@ export default async function (fastify: ServerInstance) {
         response: {
           200: getUserResponseSchema,
           404: errorResponseSchema,
+          503: errorResponseSchema,
         },
       },
     },
     async (request, reply) => {
+      if (!isDatabaseConfigured()) {
+        return reply
+          .status(503)
+          .send({
+            message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+          });
+      }
+
       const { userId } = request.params;
+      const prisma = getPrisma();
 
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -70,12 +80,22 @@ export default async function (fastify: ServerInstance) {
           400: errorResponseSchema,
           404: errorResponseSchema,
           409: errorResponseSchema,
+          503: errorResponseSchema,
         },
       },
     },
     async (request, reply) => {
+      if (!isDatabaseConfigured()) {
+        return reply
+          .status(503)
+          .send({
+            message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+          });
+      }
+
       const { userId } = request.params;
       const { email, name } = request.body;
+      const prisma = getPrisma();
 
       const existingUser = await prisma.user.findUnique({
         where: { id: userId },
@@ -123,11 +143,21 @@ export default async function (fastify: ServerInstance) {
         response: {
           200: commandResponseSchema,
           404: errorResponseSchema,
+          503: errorResponseSchema,
         },
       },
     },
     async (request, reply) => {
+      if (!isDatabaseConfigured()) {
+        return reply
+          .status(503)
+          .send({
+            message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+          });
+      }
+
       const { userId } = request.params;
+      const prisma = getPrisma();
 
       const existingUser = await prisma.user.findUnique({
         where: { id: userId },

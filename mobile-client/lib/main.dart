@@ -4,13 +4,27 @@ import 'l10n/generated/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'features/game/pages/game_page.dart';
 import 'features/users/pages/user_list_page.dart';
 import 'features/users/pages/user_detail_page.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // `.env` が無い場合でも起動できるようにする（デフォルトURLへフォールバック）
+  }
+
+  try {
+    await dotenv.load(fileName: '.env.local', mergeWith: dotenv.env);
+  } catch (_) {
+    // 開発者ローカルの上書き用（任意）
+  }
+
   MobileAds.instance.initialize();
   runApp(const ProviderScope(child: MyApp()));
 }
