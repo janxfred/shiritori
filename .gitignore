@@ -1,1 +1,4 @@
 .DS_Store
+
+# Firebase / Google (never commit)
+**/google-services.json

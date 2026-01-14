@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+staged_files="$(git diff --cached --name-only)"
+
+# Block committing google-services.json
+if echo "$staged_files" | grep -qE '(^|/)google-services\.json$'; then
+  echo "ERROR: google-services.json はコミット禁止です（機密情報を含む可能性があります）。" >&2
+  echo "       代わりに google-services.json.example を参照してください。" >&2
+  exit 1
+fi
+
+# Block committing likely Google API keys
+if git diff --cached -U0 | grep -qE 'AIzaSy[0-9A-Za-z_\-]{30,}'; then
+  echo "ERROR: Google API キーらしき文字列（AIzaSy...）がステージされています。" >&2
+  echo "       コミット前に削除/ローテーションしてください。" >&2
+  exit 1
+fi
+
+# Optional: run repo-wide scan on staged content only (fast)
+exit 0

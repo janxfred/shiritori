@@ -10,6 +10,14 @@ flutter pub get
 flutter gen-l10n
 ```
 
+## Firebase（Android）設定
+
+このリポジトリでは `mobile-client/android/app/google-services.json` は機密情報を含むため **コミットしません**。
+
+1. Firebase Console から Android アプリ（`jp.akumateki.shiritori`）用の `google-services.json` を取得
+2. `mobile-client/android/app/google-services.json.example` を参考に、`mobile-client/android/app/google-services.json` を配置
+
+
 ## iOS シミュレータのセットアップ
 
 ### 1. Xcode のインストール

@@ -43,6 +43,12 @@ npm run dev
 
 Flutter（Android エミュレータ）から接続する場合は、`mobile-client/lib/core/api/api_client.dart` が `http://10.0.2.2:3002` を使います。
 
+## セキュリティ（機密情報）
+
+- `mobile-client/android/app/google-services.json` は機密情報を含むため **コミット禁止**（`.gitignore`）です。必要な場合は Firebase Console から取得して配置してください。
+- ローカルで誤コミットを防ぐには、Git hook を有効化します: `git config core.hooksPath .githooks`
+- CI では `scripts/secret-scan.sh` で既知パターン（例: `AIzaSy...`）を検知します。
+
 ## よく使うコマンド
 
 ### Backend
