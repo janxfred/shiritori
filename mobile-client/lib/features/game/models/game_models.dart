@@ -240,3 +240,27 @@ class CheckTimeResponse {
   }
 }
 
+/// ライフサイクル通知レスポンス
+class LifecycleResponse {
+  final GameSession session;
+  final bool gameOver;
+  final String? winner;
+  final String? message;
+
+  LifecycleResponse({
+    required this.session,
+    required this.gameOver,
+    this.winner,
+    this.message,
+  });
+
+  factory LifecycleResponse.fromJson(Map<String, dynamic> json) {
+    return LifecycleResponse(
+      session: GameSession.fromJson(json['session'] as Map<String, dynamic>),
+      gameOver: json['gameOver'] as bool,
+      winner: json['winner'] as String?,
+      message: json['message'] as String?,
+    );
+  }
+}
+

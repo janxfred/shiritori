@@ -6,8 +6,8 @@
 import { v4 as uuidv4 } from "uuid";
 import type { AiLevel } from "../domain/services/AiBrainService";
 
-/** 回答制限時間（ミリ秒）: 40秒（READMEv2.md の仕様） */
-export const TURN_TIME_LIMIT_MS = 40 * 1000;
+/** 回答制限時間（ミリ秒）: 2分（リポジトリルート README の仕様） */
+export const TURN_TIME_LIMIT_MS = 2 * 60 * 1000;
 
 /** 最大ラウンド数 */
 export const MAX_ROUNDS = 10;

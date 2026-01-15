@@ -55,6 +55,19 @@ class GameApi {
     }
   }
 
+  /// ライフサイクル通知（アンチチート）
+  Future<LifecycleResponse> notifyLifecycle(String sessionId, int inactiveMs) async {
+    try {
+      final response = await _dio.post(
+        '/api/game/$sessionId/lifecycle',
+        data: {'inactiveMs': inactiveMs},
+      );
+      return LifecycleResponse.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   Exception _handleError(DioException e) {
     if (e.response != null) {
       final data = e.response?.data;

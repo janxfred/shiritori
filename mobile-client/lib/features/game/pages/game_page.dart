@@ -19,7 +19,8 @@ class GamePage extends StatefulWidget {
   State<GamePage> createState() => _GamePageState();
 }
 
-class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
+class _GamePageState extends State<GamePage>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final GameApi _api = GameApi();
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _historyScrollController = ScrollController();
@@ -39,6 +40,10 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
   // ゲームオーバーモーダル表示中か
   bool _showGameOverModal = false;
 
+  // アンチチート（非アクティブ時間）
+  int? _pausedAtMs;
+  bool _lifecycleBusy = false;
+
   // アニメーション
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
@@ -50,6 +55,7 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _shakeController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
@@ -83,12 +89,72 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _inputController.dispose();
     _historyScrollController.dispose();
     _shakeController.dispose();
     _bannerAd?.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // タイトル画面/未開始は通知しない
+    if (_session == null) return;
+    // 既に終了している場合も通知しない
+    if ((_session?.status ?? GameStatus.playing) != GameStatus.playing) return;
+    if (_showGameOverModal) return;
+
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        _pausedAtMs = DateTime.now().millisecondsSinceEpoch;
+        break;
+      case AppLifecycleState.resumed:
+        final pausedAt = _pausedAtMs;
+        _pausedAtMs = null;
+        if (pausedAt == null) return;
+        final inactiveMs = DateTime.now().millisecondsSinceEpoch - pausedAt;
+        _notifyLifecycleIfNeeded(inactiveMs);
+        break;
+      case AppLifecycleState.detached:
+        break;
+    }
+  }
+
+  Future<void> _notifyLifecycleIfNeeded(int inactiveMs) async {
+    if (_lifecycleBusy) return;
+    if (_session == null) return;
+
+    _lifecycleBusy = true;
+    try {
+      final res = await _api.notifyLifecycle(_session!.id, inactiveMs);
+      if (!mounted) return;
+
+      // セッション更新は常に反映
+      setState(() {
+        _session = res.session;
+      });
+
+      if (res.gameOver) {
+        final winner = res.winner ??
+            (res.session.status == GameStatus.playerWin
+                ? 'player'
+                : 'ai');
+        setState(() {
+          _winner = winner;
+          _demonMessage = res.message ?? '戦意喪失…敗北だ。';
+          _showGameOverModal = true;
+        });
+        _timer?.cancel();
+      }
+    } catch (_) {
+      // 通信失敗時は握り潰す（ゲーム進行は継続）
+    } finally {
+      _lifecycleBusy = false;
+    }
   }
 
   /// タイマー開始（クライアント側で120秒から確実にカウントダウン）

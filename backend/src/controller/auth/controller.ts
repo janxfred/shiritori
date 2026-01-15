@@ -78,6 +78,34 @@ function formatAuthUser(user: {
   };
 }
 
+async function findLoginUser(
+  prisma: ReturnType<typeof getPrisma>,
+  identifier: string
+) {
+  // 1) internal id (uuid)
+  const byId = await prisma.user.findUnique({ where: { id: identifier } });
+  if (byId) return { user: byId } as const;
+
+  // 2) email (unique)
+  const byEmail = await prisma.user.findUnique({ where: { email: identifier } });
+  if (byEmail) return { user: byEmail } as const;
+
+  // 3) name (non-unique) -> disambiguate
+  const byName = await prisma.user.findMany({ where: { name: identifier } });
+  if (byName.length === 1) return { user: byName[0]! } as const;
+  if (byName.length >= 2) {
+    return {
+      error: {
+        status: 400,
+        message:
+          "同名ユーザーが複数います。アカウント設定で表示されるユーザーIDでログインしてください",
+      },
+    } as const;
+  }
+
+  return { user: null } as const;
+}
+
 export default async function (fastify: ServerInstance) {
   fastify.post(
     "/signup",
@@ -129,7 +157,7 @@ export default async function (fastify: ServerInstance) {
     {
       schema: {
         tags: ["Auth"],
-        summary: "ログイン（ID+合言葉）",
+        summary: "ログイン（ユーザーID/メール/名前 + 合言葉）",
         body: loginRequestSchema,
         response: {
           200: loginResponseSchema,
@@ -150,10 +178,15 @@ export default async function (fastify: ServerInstance) {
       const prisma = getPrisma();
       const { userId, password } = request.body;
 
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        return reply.status(404).send({ message: "ユーザーが見つかりません" });
+      const found = await findLoginUser(prisma, userId);
+      if (found.error) {
+        return reply
+          .status(found.error.status)
+          .send({ message: found.error.message });
       }
+
+      const user = found.user;
+      if (!user) return reply.status(404).send({ message: "ユーザーが見つかりません" });
 
       const ok = await bcrypt.compare(password, user.passwordHash);
       if (!ok) {

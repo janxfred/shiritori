@@ -59,7 +59,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             TextField(
               controller: _userIdController,
               decoration: const InputDecoration(
-                labelText: 'ユーザーID',
+                labelText: 'ユーザーID（または名前/メール）',
                 border: OutlineInputBorder(),
               ),
             ),
