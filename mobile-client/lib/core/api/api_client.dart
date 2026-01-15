@@ -28,6 +28,10 @@ class ApiClient {
   }
 
   ApiClient._internal() {
+    if (kDebugMode) {
+      stderr.writeln('[API] baseUrl=$_baseUrl');
+    }
+
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
       connectTimeout: const Duration(seconds: 10),

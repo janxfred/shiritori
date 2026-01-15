@@ -10,7 +10,11 @@ export const sessionIdParamsSchema = z.object({
 });
 
 /** AIレベル */
-export const aiLevelSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
+export const aiLevelSchema = z.union([
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+]);
 
 /** ターン履歴エントリ */
 const turnHistoryEntrySchema = z.object({
@@ -85,6 +89,21 @@ export const submitWordResponseSchema = z.object({
   gameOver: z.boolean(),
   winner: z.enum(["player", "ai"]).optional(),
   overtimeStarted: z.boolean().optional(),
+});
+
+/** ライフサイクル（非アクティブ時間通知）リクエスト */
+export const lifecycleRequestSchema = z
+  .object({
+    inactiveMs: z.coerce.number().int().min(0),
+  })
+  .strict();
+
+/** ライフサイクル（非アクティブ時間通知）レスポンス */
+export const lifecycleResponseSchema = z.object({
+  session: sessionSchema,
+  gameOver: z.boolean(),
+  winner: z.enum(["player", "ai"]).optional(),
+  message: z.string().optional(),
 });
 
 /** 時間チェックレスポンス */

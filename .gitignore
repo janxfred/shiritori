@@ -1,4 +1,13 @@
 .DS_Store
 
+# Local dev logs
+.logs/
+
 # Firebase / Google (never commit)
 **/google-services.json
+
+# Android signing (never commit)
+**/key.properties
+**/*.jks
+**/*.jks.*
+**/keystore/

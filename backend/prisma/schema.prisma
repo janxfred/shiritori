@@ -7,23 +7,208 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ===========================================
-// User Model (テンプレート例)
+// User Model
 // ===========================================
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String @id @default(uuid())
+
+  // 認証情報
+  name         String
+  passwordHash String @map("password_hash")
+  email        String? @unique
+
+  // 装備中アイテム（UI 表示用）
+  iconId    String @default("default_demon") @map("icon_id")
+  messageId String @default("msg_default_01") @map("message_id")
+
+  // 装備中称号（3 スロット）
+  title1Id String? @map("title1_id")
+  title2Id String? @map("title2_id")
+  title3Id String? @map("title3_id")
+
+  // ステータス・経済
+  level        Int     @default(1)
+  exp          Int     @default(0)
+  rating       Int     @default(1000)
+  coins        Int     @default(0)
+  soulCount    Int     @default(5) @map("soul_count")
+  isSubscriber Boolean @default(false) @map("is_subscriber")
+
+  // 公開設定 (Visibility Flags)
+  isRatingPublic   Boolean @default(true) @map("is_rating_public")
+  isWinCountPublic Boolean @default(true) @map("is_win_count_public")
+  isWinRatePublic  Boolean @default(false) @map("is_win_rate_public")
+  isStreakPublic   Boolean @default(true) @map("is_streak_public")
+
+  // 契約（Terms of Service）
+  termsAgreedAt DateTime? @map("terms_agreed_at")
+  termsVersion  String?   @map("terms_version")
+
+  // フラグ・ログ
+  isCheater    Boolean  @default(false) @map("is_cheater")
+  emailLinkedAt DateTime? @map("email_linked_at")
+  lastLoginAt  DateTime @default(now()) @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // リレーション: マスタ参照
+  equippedIcon    IconMaster    @relation(fields: [iconId], references: [id])
+  equippedMessage MessageMaster @relation(fields: [messageId], references: [id])
+  equippedTitle1  Title?        @relation("EquippedTitle1", fields: [title1Id], references: [id])
+  equippedTitle2  Title?        @relation("EquippedTitle2", fields: [title2Id], references: [id])
+  equippedTitle3  Title?        @relation("EquippedTitle3", fields: [title3Id], references: [id])
+
+  // インベントリ（所持品）
+  ownedMessages UserMessage[]
+  ownedIcons    UserIcon[]
+  ownedTitles   UserTitle[]
+  ownedItems    UserItem[]
+
+  // 戦績
+  stats        UserStats?
+  matchHistory MatchHistory[]
 
   @@map("users")
 }
 
 // ===========================================
-// 以下、プロジェクトに合わせてモデルを追加
+// マスターデータ
 // ===========================================
+
+model MessageMaster {
+  id      String @id
+  content String
+  rarity  Int    @default(1)
+
+  users      UserMessage[]
+  equippedBy User[]
+
+  @@map("message_masters")
+}
+
+model IconMaster {
+  id       String @id
+  imageUrl String @map("image_url")
+  rarity   Int    @default(1)
+
+  users      UserIcon[]
+  equippedBy User[]
+
+  @@map("icon_masters")
+}
+
+model Title {
+  id          String @id
+  name        String
+  description String
+  condition   String
+
+  // 装備情報の逆引き
+  equippedUsers1 User[] @relation("EquippedTitle1")
+  equippedUsers2 User[] @relation("EquippedTitle2")
+  equippedUsers3 User[] @relation("EquippedTitle3")
+
+  // 所持情報
+  ownedBy UserTitle[]
+
+  @@map("titles")
+}
+
+model ItemMaster {
+  id          String @id
+  name        String
+  description String
+  rarity      Int    @default(1)
+
+  users UserItem[]
+
+  @@map("item_masters")
+}
+
+// ===========================================
+// 中間テーブル（所持情報）
+// ===========================================
+
+model UserMessage {
+  userId    String   @map("user_id")
+  messageId String   @map("message_id")
+  obtainedAt DateTime @default(now()) @map("obtained_at")
+
+  user    User          @relation(fields: [userId], references: [id])
+  message MessageMaster @relation(fields: [messageId], references: [id])
+
+  @@id([userId, messageId])
+  @@map("user_messages")
+}
+
+model UserIcon {
+  userId    String   @map("user_id")
+  iconId    String   @map("icon_id")
+  obtainedAt DateTime @default(now()) @map("obtained_at")
+
+  user User       @relation(fields: [userId], references: [id])
+  icon IconMaster @relation(fields: [iconId], references: [id])
+
+  @@id([userId, iconId])
+  @@map("user_icons")
+}
+
+model UserTitle {
+  userId    String   @map("user_id")
+  titleId   String   @map("title_id")
+  obtainedAt DateTime @default(now()) @map("obtained_at")
+
+  user  User  @relation(fields: [userId], references: [id])
+  title Title @relation(fields: [titleId], references: [id])
+
+  @@id([userId, titleId])
+  @@map("user_titles")
+}
+
+model UserItem {
+  userId     String   @map("user_id")
+  itemId     String   @map("item_id")
+  obtainedAt DateTime @default(now()) @map("obtained_at")
+
+  user User       @relation(fields: [userId], references: [id])
+  item ItemMaster @relation(fields: [itemId], references: [id])
+
+  @@id([userId, itemId])
+  @@map("user_items")
+}
+
+// ===========================================
+// 戦績・履歴
+// ===========================================
+
+model UserStats {
+  userId String @id @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  totalWins   Int @default(0) @map("total_wins")
+  totalLosses Int @default(0) @map("total_losses")
+  totalDraws  Int @default(0) @map("total_draws")
+
+  currentStreak Int @default(0) @map("current_streak")
+  maxStreak     Int @default(0) @map("max_streak")
+
+  @@map("user_stats")
+}
+
+model MatchHistory {
+  id String @id @default(uuid())
+
+  userId     String @map("user_id")
+  opponentId String @map("opponent_id")
+  result     String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("match_histories")
+}

@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
 import { getPrisma, isDatabaseConfigured } from "../../database";
 import { type ServerInstance } from "../../lib/fastify";
 import {
@@ -14,7 +16,7 @@ import {
 
 function formatUserResponse(user: {
   id: string;
-  email: string;
+  email: string | null;
   name: string;
   createdAt: Date;
   updatedAt: Date;
@@ -26,6 +28,28 @@ function formatUserResponse(user: {
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
+}
+
+async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
+  await prisma.iconMaster.upsert({
+    where: { id: "default_demon" },
+    update: {},
+    create: {
+      id: "default_demon",
+      imageUrl: "https://example.com/default_demon.png",
+      rarity: 1,
+    },
+  });
+
+  await prisma.messageMaster.upsert({
+    where: { id: "msg_default_01" },
+    update: {},
+    create: {
+      id: "msg_default_01",
+      content: "契約は既に結ばれた。さあ、言葉を捧げよ。",
+      rarity: 1,
+    },
+  });
 }
 
 export default async function (fastify: ServerInstance) {
@@ -46,11 +70,9 @@ export default async function (fastify: ServerInstance) {
     },
     async (request, reply) => {
       if (!isDatabaseConfigured()) {
-        return reply
-          .status(503)
-          .send({
-            message: "DATABASE_URL が未設定のため、このAPIは利用できません",
-          });
+        return reply.status(503).send({
+          message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+        });
       }
 
       const { page, limit, search } = request.query;
@@ -106,15 +128,15 @@ export default async function (fastify: ServerInstance) {
     },
     async (request, reply) => {
       if (!isDatabaseConfigured()) {
-        return reply
-          .status(503)
-          .send({
-            message: "DATABASE_URL が未設定のため、このAPIは利用できません",
-          });
+        return reply.status(503).send({
+          message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+        });
       }
 
       const { email, name } = request.body;
       const prisma = getPrisma();
+
+      await ensureDefaultMasters(prisma);
 
       const existingUser = await prisma.user.findUnique({
         where: { email },
@@ -126,8 +148,18 @@ export default async function (fastify: ServerInstance) {
           .send({ message: "このメールアドレスは既に登録されています" });
       }
 
+      const randomPassword = crypto.randomBytes(16).toString("hex");
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+
       await prisma.user.create({
-        data: { email, name },
+        data: {
+          email,
+          name,
+          passwordHash,
+          stats: { create: {} },
+          ownedIcons: { create: { iconId: "default_demon" } },
+          ownedMessages: { create: { messageId: "msg_default_01" } },
+        },
       });
 
       return reply.status(201).send({ message: "ユーザーを作成しました" });

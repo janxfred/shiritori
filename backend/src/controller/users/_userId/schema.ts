@@ -6,7 +6,7 @@ export const errorResponseSchema = z.object({
 
 export const userResponseSchema = z.object({
   id: z.string(),
-  email: z.email(),
+  email: z.string().email().nullable(),
   name: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -31,7 +31,7 @@ export const updateUserParamsSchema = z.object({
 export type UpdateUserParams = z.infer<typeof updateUserParamsSchema>;
 
 export const updateUserRequestSchema = z.object({
-  email: z.email().optional(),
+  email: z.string().email().nullable().optional(),
   name: z.string().min(1).max(100).optional(),
 });
 

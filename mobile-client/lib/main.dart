@@ -9,6 +9,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'features/game/pages/game_page.dart';
 import 'features/users/pages/user_list_page.dart';
 import 'features/users/pages/user_detail_page.dart';
+import 'features/account/pages/account_settings_page.dart';
+import 'features/auth/pages/login_page.dart';
+import 'features/auth/pages/signup_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +38,18 @@ final _router = GoRouter(
     GoRoute(
       path: '/',
       builder: (context, state) => const GamePage(),
+    ),
+    GoRoute(
+      path: '/account',
+      builder: (context, state) => const AccountSettingsPage(),
+    ),
+    GoRoute(
+      path: '/login',
+      builder: (context, state) => const LoginPage(),
+    ),
+    GoRoute(
+      path: '/signup',
+      builder: (context, state) => const SignupPage(),
     ),
     GoRoute(
       path: '/users',

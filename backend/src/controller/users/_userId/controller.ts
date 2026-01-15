@@ -12,7 +12,7 @@ import {
 
 function formatUserResponse(user: {
   id: string;
-  email: string;
+  email: string | null;
   name: string;
   createdAt: Date;
   updatedAt: Date;
@@ -44,11 +44,9 @@ export default async function (fastify: ServerInstance) {
     },
     async (request, reply) => {
       if (!isDatabaseConfigured()) {
-        return reply
-          .status(503)
-          .send({
-            message: "DATABASE_URL が未設定のため、このAPIは利用できません",
-          });
+        return reply.status(503).send({
+          message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+        });
       }
 
       const { userId } = request.params;
@@ -86,11 +84,9 @@ export default async function (fastify: ServerInstance) {
     },
     async (request, reply) => {
       if (!isDatabaseConfigured()) {
-        return reply
-          .status(503)
-          .send({
-            message: "DATABASE_URL が未設定のため、このAPIは利用できません",
-          });
+        return reply.status(503).send({
+          message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+        });
       }
 
       const { userId } = request.params;
@@ -123,7 +119,7 @@ export default async function (fastify: ServerInstance) {
       await prisma.user.update({
         where: { id: userId },
         data: {
-          ...(email && { email }),
+          ...(email !== undefined && { email }),
           ...(name && { name }),
         },
       });
@@ -149,11 +145,9 @@ export default async function (fastify: ServerInstance) {
     },
     async (request, reply) => {
       if (!isDatabaseConfigured()) {
-        return reply
-          .status(503)
-          .send({
-            message: "DATABASE_URL が未設定のため、このAPIは利用できません",
-          });
+        return reply.status(503).send({
+          message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+        });
       }
 
       const { userId } = request.params;

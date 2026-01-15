@@ -17,7 +17,6 @@ flutter gen-l10n
 1. Firebase Console から Android アプリ（`jp.akumateki.shiritori`）用の `google-services.json` を取得
 2. `mobile-client/android/app/google-services.json.example` を参考に、`mobile-client/android/app/google-services.json` を配置
 
-
 ## iOS シミュレータのセットアップ
 
 ### 1. Xcode のインストール
@@ -161,6 +160,6 @@ Text(l10n.userList);
 
 ## API 設定
 
-デフォルトのベース URL は `http://10.0.2.2:3000`（Android エミュレータ用）です。
+デフォルトのベース URL は `http://10.0.2.2:3002`（Android エミュレータ用）です。
 
 iOS シミュレータの場合は `lib/core/api/api_client.dart` で `localhost` に変更してください。

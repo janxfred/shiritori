@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:go_router/go_router.dart';
 import '../api/game_api.dart';
 import '../models/game_models.dart';
 
@@ -321,6 +322,16 @@ class _GamePageState extends State<GamePage> with TickerProviderStateMixin {
                     GamePhase.overtimeAnnounce => _buildOvertimeAnnounce(),
                     GamePhase.gameOver => _buildGameScreen(), // ゲームオーバー時も背景はゲーム画面
                   },
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      tooltip: 'アカウント設定',
+                      onPressed: () => context.push('/account'),
+                      icon: const Icon(Icons.settings),
+                      color: const Color(0xFFD4AF37),
+                    ),
+                  ),
                   // ゲームオーバーモーダル
                   if (_showGameOverModal) _buildGameOverModal(),
                 ],

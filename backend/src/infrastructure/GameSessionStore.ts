@@ -6,8 +6,8 @@
 import { v4 as uuidv4 } from "uuid";
 import type { AiLevel } from "../domain/services/AiBrainService";
 
-/** 回答制限時間（ミリ秒）: 2分 */
-export const TURN_TIME_LIMIT_MS = 2 * 60 * 1000;
+/** 回答制限時間（ミリ秒）: 40秒（READMEv2.md の仕様） */
+export const TURN_TIME_LIMIT_MS = 40 * 1000;
 
 /** 最大ラウンド数 */
 export const MAX_ROUNDS = 10;
@@ -57,15 +57,49 @@ const SESSION_TTL_MS = 60 * 60 * 1000;
 
 /** しりとりで使用可能なひらがな（開始文字用） */
 const HIRAGANA_START_CHARS = [
-  "あ", "い", "う", "え", "お",
-  "か", "き", "く", "け", "こ",
-  "さ", "し", "す", "せ", "そ",
-  "た", "ち", "つ", "て", "と",
-  "な", "に", "ぬ", "ね", "の",
-  "は", "ひ", "ふ", "へ", "ほ",
-  "ま", "み", "む", "め", "も",
-  "や", "ゆ", "よ",
-  "ら", "り", "る", "れ", "ろ",
+  "あ",
+  "い",
+  "う",
+  "え",
+  "お",
+  "か",
+  "き",
+  "く",
+  "け",
+  "こ",
+  "さ",
+  "し",
+  "す",
+  "せ",
+  "そ",
+  "た",
+  "ち",
+  "つ",
+  "て",
+  "と",
+  "な",
+  "に",
+  "ぬ",
+  "ね",
+  "の",
+  "は",
+  "ひ",
+  "ふ",
+  "へ",
+  "ほ",
+  "ま",
+  "み",
+  "む",
+  "め",
+  "も",
+  "や",
+  "ゆ",
+  "よ",
+  "ら",
+  "り",
+  "る",
+  "れ",
+  "ろ",
   "わ",
 ];
 
@@ -77,8 +111,11 @@ export function createSession(aiLevel: AiLevel = 3): GameSession {
   // 先攻をランダムに決定
   const firstTurn = Math.random() < 0.5 ? "player" : "ai";
   // 冒頭のひらがなをランダムに指定
-  const startChar = HIRAGANA_START_CHARS[Math.floor(Math.random() * HIRAGANA_START_CHARS.length)];
-  
+  const startChar =
+    HIRAGANA_START_CHARS[
+      Math.floor(Math.random() * HIRAGANA_START_CHARS.length)
+    ];
+
   const session: GameSession = {
     id: uuidv4(),
     status: "playing",

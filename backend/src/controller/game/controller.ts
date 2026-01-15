@@ -15,6 +15,7 @@ import {
   createSession,
   getSession,
   sessionToJson,
+  updateSession,
 } from "../../infrastructure/GameSessionStore";
 import { type ServerInstance } from "../../lib/fastify";
 import {
@@ -23,6 +24,8 @@ import {
   createGameResponseSchema,
   errorResponseSchema,
   gameStateResponseSchema,
+  lifecycleRequestSchema,
+  lifecycleResponseSchema,
   sessionIdParamsSchema,
   submitWordRequestSchema,
   submitWordResponseSchema,
@@ -165,7 +168,7 @@ export default async function (fastify: ServerInstance) {
         tags: ["Game"],
         summary: "制限時間チェック",
         description:
-          "プレイヤーの制限時間（2分）を超過しているかチェックします。",
+          "プレイヤーの制限時間（40秒）を超過しているかチェックします。",
         params: sessionIdParamsSchema,
         response: {
           200: checkTimeResponseSchema,
@@ -189,6 +192,80 @@ export default async function (fastify: ServerInstance) {
         message: result.expired
           ? "時は金なり…汝は時を浪費した。敗北だ。"
           : undefined,
+      });
+    }
+  );
+
+  /**
+   * ライフサイクル（アンチチート）: 非アクティブ時間を通知
+   * READMEv2.md: paused→resumed の delta >= 10秒 なら即敗北
+   */
+  fastify.post(
+    "/:sessionId/lifecycle",
+    {
+      schema: {
+        tags: ["Game"],
+        summary: "ライフサイクル通知（アンチチート）",
+        description:
+          "アプリが非アクティブだった時間(ms)を通知します。inactiveMs >= 10000 の場合、即敗北（AI勝利）になります。",
+        params: sessionIdParamsSchema,
+        body: lifecycleRequestSchema,
+        response: {
+          200: lifecycleResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { sessionId } = request.params;
+      const { inactiveMs } = request.body;
+
+      const session = getSession(sessionId);
+      if (!session) {
+        return reply
+          .status(404)
+          .send({ message: "セッションが見つかりません" });
+      }
+
+      // 既に終了している場合はそのまま返す
+      if (session.status !== "playing") {
+        return reply.send({
+          session: sessionToJson(session),
+          gameOver: true,
+          winner: session.status === "player_win" ? "player" : "ai",
+        });
+      }
+
+      // 非アクティブが10秒以上なら即敗北
+      if (inactiveMs >= 10_000) {
+        session.status = "ai_win";
+
+        // 状態更新（残り時間計算を止めないため turnStartedAt はそのまま）
+        const message = "戦意喪失…汝は魔界から目を逸らした。敗北だ。";
+
+        // ログに残す（turn/history 形式は既存と合わせる）
+        session.history.push({
+          turn: session.turnCount + 1,
+          player: "player",
+          word: "(非アクティブ)",
+          isValid: false,
+          capturedChars: [],
+          message,
+        });
+
+        updateSession(session);
+
+        return reply.send({
+          session: sessionToJson(session),
+          gameOver: true,
+          winner: "ai",
+          message,
+        });
+      }
+
+      return reply.send({
+        session: sessionToJson(session),
+        gameOver: false,
       });
     }
   );
