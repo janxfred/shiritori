@@ -12,6 +12,11 @@ function ratingDeltaFromResult(result: "win" | "loss" | "draw"): number {
   return 0;
 }
 
+function coinDeltaFromResult(result: "win" | "loss" | "draw"): number {
+  if (result === "win") return 4;
+  return 1;
+}
+
 export default async function (fastify: ServerInstance) {
   fastify.post(
     "/",
@@ -20,7 +25,7 @@ export default async function (fastify: ServerInstance) {
         tags: ["Match"],
         summary: "対戦結果反映（レート/戦績/履歴）",
         description:
-          "ランクマッチの結果を反映します（勝利+4 / 敗北-2 / 引分0）。UserStats と MatchHistory を更新します。",
+          "ランクマッチの結果を反映します（勝利+4 / 敗北-2 / 引分0）。勝利+4コイン / それ以外+1コイン。UserStats / MatchHistory / coins を更新します。",
         body: createMatchRequestSchema,
         response: {
           200: createMatchResponseSchema,
@@ -60,6 +65,7 @@ export default async function (fastify: ServerInstance) {
         return reply.status(404).send({ message: "対戦相手が見つかりません" });
 
       const delta = ratingDeltaFromResult(result);
+      const coinDelta = coinDeltaFromResult(result);
 
       const nextStats = {
         totalWins: (user.stats?.totalWins ?? 0) + (result === "win" ? 1 : 0),
@@ -80,7 +86,8 @@ export default async function (fastify: ServerInstance) {
         const updatedUser = await tx.user.update({
           where: { id: userId },
           data: {
-            rating: user.rating + delta,
+            rating: { increment: delta },
+            coins: { increment: coinDelta },
             stats: {
               upsert: {
                 create: {
@@ -120,6 +127,7 @@ export default async function (fastify: ServerInstance) {
         user: {
           id: updated.id,
           rating: updated.rating,
+          coins: updated.coins,
           stats: {
             totalWins: updated.stats?.totalWins ?? 0,
             totalLosses: updated.stats?.totalLosses ?? 0,

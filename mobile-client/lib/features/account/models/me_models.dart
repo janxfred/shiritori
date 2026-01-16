@@ -45,6 +45,8 @@ class MeUser {
     required this.isWinRatePublic,
     required this.isStreakPublic,
     required this.stats,
+    required this.lastRatingDelta,
+    required this.lastMatchAt,
   });
 
   final String id;
@@ -71,6 +73,9 @@ class MeUser {
 
   final MeStats? stats;
 
+  final int? lastRatingDelta;
+  final DateTime? lastMatchAt;
+
   factory MeUser.fromJson(Map<String, dynamic> json) {
     return MeUser(
       id: json['id'] as String,
@@ -94,6 +99,30 @@ class MeUser {
       stats: json['stats'] == null
           ? null
           : MeStats.fromJson(json['stats'] as Map<String, dynamic>),
+      lastRatingDelta: (json['lastRatingDelta'] as num?)?.toInt(),
+      lastMatchAt: json['lastMatchAt'] == null
+          ? null
+          : DateTime.parse(json['lastMatchAt'] as String),
+    );
+  }
+}
+
+class InventoryMessage {
+  const InventoryMessage({
+    required this.id,
+    required this.content,
+    required this.rarity,
+  });
+
+  final String id;
+  final String content;
+  final int rarity;
+
+  factory InventoryMessage.fromJson(Map<String, dynamic> json) {
+    return InventoryMessage(
+      id: json['id'] as String,
+      content: json['content'] as String,
+      rarity: (json['rarity'] as num).toInt(),
     );
   }
 }
@@ -174,11 +203,13 @@ class InventoryResponse {
   const InventoryResponse({
     required this.equipped,
     required this.icons,
+    required this.messages,
     required this.titles,
   });
 
   final InventoryEquipped equipped;
   final List<InventoryIcon> icons;
+  final List<InventoryMessage> messages;
   final List<InventoryTitle> titles;
 
   factory InventoryResponse.fromJson(Map<String, dynamic> json) {
@@ -188,6 +219,9 @@ class InventoryResponse {
       ),
       icons: (json['icons'] as List<dynamic>)
           .map((x) => InventoryIcon.fromJson(x as Map<String, dynamic>))
+          .toList(growable: false),
+        messages: (json['messages'] as List<dynamic>)
+          .map((x) => InventoryMessage.fromJson(x as Map<String, dynamic>))
           .toList(growable: false),
       titles: (json['titles'] as List<dynamic>)
           .map((x) => InventoryTitle.fromJson(x as Map<String, dynamic>))

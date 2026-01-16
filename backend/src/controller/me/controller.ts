@@ -11,6 +11,12 @@ import {
   updateMeResponseSchema,
 } from "./schema";
 
+function ratingDeltaFromResult(result: "win" | "loss" | "draw"): number {
+  if (result === "win") return 4;
+  if (result === "loss") return -2;
+  return 0;
+}
+
 function getBearerToken(request: {
   headers: Record<string, unknown>;
 }): string | null {
@@ -47,6 +53,8 @@ function formatMe(user: {
     currentStreak: number;
     maxStreak: number;
   } | null;
+  lastRatingDelta: number | null;
+  lastMatchAt: string | null;
 }) {
   return {
     id: user.id,
@@ -68,6 +76,8 @@ function formatMe(user: {
     isWinRatePublic: user.isWinRatePublic,
     isStreakPublic: user.isStreakPublic,
     stats: user.stats,
+    lastRatingDelta: user.lastRatingDelta,
+    lastMatchAt: user.lastMatchAt,
   };
 }
 
@@ -107,7 +117,21 @@ export default async function (fastify: ServerInstance) {
 
       if (!user) return reply.status(401).send({ message: "認証が必要です" });
 
-      return reply.send({ user: formatMe(user) });
+      const lastMatch = await prisma.matchHistory.findFirst({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        select: { result: true, createdAt: true },
+      });
+
+      return reply.send({
+        user: formatMe({
+          ...user,
+          lastRatingDelta: lastMatch
+            ? ratingDeltaFromResult(lastMatch.result as "win" | "loss" | "draw")
+            : null,
+          lastMatchAt: lastMatch ? lastMatch.createdAt.toISOString() : null,
+        }),
+      });
     }
   );
 
@@ -213,9 +237,21 @@ export default async function (fastify: ServerInstance) {
         include: { stats: true },
       });
 
+      const lastMatch = await prisma.matchHistory.findFirst({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        select: { result: true, createdAt: true },
+      });
+
       return reply.send({
         message: "プロフィールを更新しました",
-        user: formatMe(user),
+        user: formatMe({
+          ...user,
+          lastRatingDelta: lastMatch
+            ? ratingDeltaFromResult(lastMatch.result as "win" | "loss" | "draw")
+            : null,
+          lastMatchAt: lastMatch ? lastMatch.createdAt.toISOString() : null,
+        }),
       });
     }
   );

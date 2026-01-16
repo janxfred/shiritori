@@ -102,6 +102,11 @@ function ratingDeltaFromResult(result: "win" | "loss" | "draw"): number {
   return 0;
 }
 
+function coinDeltaFromResult(result: "win" | "loss" | "draw"): number {
+  if (result === "win") return 4;
+  return 1;
+}
+
 async function commitRatedResultIfNeeded(params: {
   session: PvpSession;
   winnerUserId: string | null;
@@ -141,6 +146,9 @@ async function commitRatedResultIfNeeded(params: {
 
   const p1Delta = ratingDeltaFromResult(p1Result);
   const p2Delta = ratingDeltaFromResult(p2Result);
+
+  const p1CoinDelta = coinDeltaFromResult(p1Result);
+  const p2CoinDelta = coinDeltaFromResult(p2Result);
 
   const [p1, p2] = await Promise.all([
     prisma.user.findUnique({
@@ -182,7 +190,8 @@ async function commitRatedResultIfNeeded(params: {
     const updatedP1 = await tx.user.update({
       where: { id: p1.id },
       data: {
-        rating: p1.rating + p1Delta,
+        rating: { increment: p1Delta },
+        coins: { increment: p1CoinDelta },
         stats: {
           upsert: {
             create: p1Next,
@@ -196,7 +205,8 @@ async function commitRatedResultIfNeeded(params: {
     const updatedP2 = await tx.user.update({
       where: { id: p2.id },
       data: {
-        rating: p2.rating + p2Delta,
+        rating: { increment: p2Delta },
+        coins: { increment: p2CoinDelta },
         stats: {
           upsert: {
             create: p2Next,

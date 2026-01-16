@@ -216,7 +216,7 @@ class _GamePageState extends State<GamePage>
         _showGameOverModal = false;
         _selectedLevel = aiLevel;
       });
-      
+
       // AI先攻の場合、AIの返答を2秒後に表示
       if (response.aiFirstWord != null) {
         setState(() {
@@ -228,7 +228,7 @@ class _GamePageState extends State<GamePage>
           _demonMessage = response.aiFirstWord!.message;
         });
       }
-      
+
       _startTimer();
     } catch (e) {
       _showError('ゲーム開始エラー: $e');
@@ -419,167 +419,199 @@ class _GamePageState extends State<GamePage>
           colors: [Color(0xFF1E1E1E), Color(0xFF3D0000)],
         ),
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // タイトル
-            const Text(
-              '悪魔的',
-              style: TextStyle(
-                fontSize: 48,
-                color: Color(0xFFD4AF37),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Text(
-              'しりとり',
-              style: TextStyle(
-                fontSize: 48,
-                color: Color(0xFFD4AF37),
-                fontWeight: FontWeight.bold,
-                letterSpacing: 8,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '〜 悪魔との言葉遊び 〜',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[400],
-              ),
-            ),
-            const SizedBox(height: 32),
-            
-            // ルール説明
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 32),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2D2D2D).withValues(alpha: 204),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[700]!),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Center(
-                    child: Text(
-                      '【ルール】',
-                      style: TextStyle(
-                        color: Color(0xFFD4AF37),
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '• 初めて使った文字を「確保」する\n'
-                    '• 相手の確保文字は使用不可\n'
-                    '• 確保文字が少ない方が勝利\n'
-                    '• お手つき2回で即敗北\n'
-                    '• 制限時間 2分（1ターンごと）\n'
-                    '• 10ラウンドで決着\n'
-                    '• 小さい文字は大きい文字と同一とみなす\n'
-                    '• 互いに悪魔辞書にある単語のみ使用可能\n',
-                    style: TextStyle(
-                      color: Colors.grey[300],
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            
-            // レベル選択
-            Text(
-              '難易度を選択',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[400],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: AiLevel.values.map((level) {
-                final isSelected = level == _selectedLevel;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: ElevatedButton(
-                    onPressed: () => setState(() => _selectedLevel = level),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isSelected 
-                          ? const Color(0xFFD4AF37) 
-                          : const Color(0xFF2D2D2D),
-                      foregroundColor: isSelected 
-                          ? Colors.black 
-                          : Colors.grey[400],
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: isSelected 
-                              ? const Color(0xFFD4AF37) 
-                              : Colors.grey[700]!,
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        '悪魔的',
+                        style: TextStyle(
+                          fontSize: 48,
+                          color: Color(0xFFD4AF37),
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                    child: Text(_getLevelName(level)),
+                      const Text(
+                        'しりとり',
+                        style: TextStyle(
+                          fontSize: 48,
+                          color: Color(0xFFD4AF37),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 8,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '〜 悪魔との言葉遊び 〜',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[400],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 32),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2D2D2D).withValues(alpha: 204),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[700]!),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Center(
+                              child: Text(
+                                '【ルール】',
+                                style: TextStyle(
+                                  color: Color(0xFFD4AF37),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '• 初めて使った文字を「確保」する\n'
+                              '• 相手の確保文字は使用不可\n'
+                              '• 確保文字が少ない方が勝利\n'
+                              '• お手つき2回で即敗北\n'
+                              '• 制限時間 2分（1ターンごと）\n'
+                              '• 10ラウンドで決着\n'
+                              '• 小さい文字は大きい文字と同一とみなす\n'
+                              '• 互いに悪魔辞書にある単語のみ使用可能\n',
+                              style: TextStyle(
+                                color: Colors.grey[300],
+                                fontSize: 14,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      Text(
+                        '難易度を選択',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[400],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: AiLevel.values.map((level) {
+                          final isSelected = level == _selectedLevel;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: ElevatedButton(
+                              onPressed: () =>
+                                  setState(() => _selectedLevel = level),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isSelected
+                                    ? const Color(0xFFD4AF37)
+                                    : const Color(0xFF2D2D2D),
+                                foregroundColor:
+                                    isSelected ? Colors.black : Colors.grey[400],
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? const Color(0xFFD4AF37)
+                                        : Colors.grey[700]!,
+                                  ),
+                                ),
+                              ),
+                              child: Text(_getLevelName(level)),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 40),
+                      ElevatedButton(
+                        onPressed: _startGame,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF8B0000),
+                          foregroundColor: const Color(0xFFD4AF37),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 48,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: const BorderSide(color: Color(0xFFD4AF37)),
+                          ),
+                        ),
+                        child: const Text(
+                          'ゲーム開始',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: () => context.push('/ranked'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFD4AF37),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 48,
+                            vertical: 16,
+                          ),
+                          side: const BorderSide(color: Color(0xFFD4AF37)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'レート対戦',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: () => context.push('/gacha'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFD4AF37),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 48,
+                            vertical: 16,
+                          ),
+                          side: const BorderSide(color: Color(0xFFD4AF37)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          '召喚（ガチャ）',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 40),
-            
-            // 開始ボタン
-            ElevatedButton(
-              onPressed: _startGame,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8B0000),
-                foregroundColor: const Color(0xFFD4AF37),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 48,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: const BorderSide(color: Color(0xFFD4AF37)),
                 ),
               ),
-              child: const Text(
-                'ゲーム開始',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            OutlinedButton(
-              onPressed: () => context.push('/ranked'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFD4AF37),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 48,
-                  vertical: 16,
-                ),
-                side: const BorderSide(color: Color(0xFFD4AF37)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text(
-                'レート対戦',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

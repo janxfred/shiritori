@@ -15,6 +15,7 @@ import 'features/auth/pages/signup_page.dart';
 import 'features/ranked/pages/ranked_match_page.dart';
 import 'features/pvp/pages/pvp_game_page.dart';
 import 'features/pvp/models/pvp_models.dart';
+import 'features/gacha/pages/gacha_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +46,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/ranked',
       builder: (context, state) => const RankedMatchPage(),
+    ),
+    GoRoute(
+      path: '/gacha',
+      builder: (context, state) => const GachaPage(),
     ),
     GoRoute(
       path: '/pvp/:sessionId',

@@ -26,9 +26,21 @@ class MeApi {
     return InventoryResponse.fromJson(res.data as Map<String, dynamic>);
   }
 
-  Future<MeUser> updateMe({required String token, String? iconId}) async {
+  Future<MeUser> updateMe({
+    required String token,
+    String? iconId,
+    String? messageId,
+    String? title1Id,
+    bool clearTitle1 = false,
+  }) async {
     final data = <String, dynamic>{};
     if (iconId != null) data['iconId'] = iconId;
+    if (messageId != null) data['messageId'] = messageId;
+    if (clearTitle1) {
+      data['title1Id'] = null;
+    } else if (title1Id != null) {
+      data['title1Id'] = title1Id;
+    }
 
     final res = await _dio.patch(
       '/api/me',

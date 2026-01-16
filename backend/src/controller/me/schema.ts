@@ -36,6 +36,10 @@ export const meSchema = z.object({
   isStreakPublic: z.boolean(),
 
   stats: statsSchema.nullable(),
+
+  // 直近の対戦結果から算出（未対戦なら null）
+  lastRatingDelta: z.number().int().nullable(),
+  lastMatchAt: z.string().nullable(),
 });
 
 export const getMeResponseSchema = z.object({

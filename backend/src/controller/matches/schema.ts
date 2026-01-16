@@ -20,6 +20,7 @@ export const createMatchResponseSchema = z.object({
   user: z.object({
     id: z.string(),
     rating: z.number().int(),
+    coins: z.number().int(),
     stats: z.object({
       totalWins: z.number().int(),
       totalLosses: z.number().int(),
