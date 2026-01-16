@@ -5,6 +5,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../api/account_api.dart';
 import '../api/me_api.dart';
 import '../models/me_models.dart';
+import '../../../core/api/api_client.dart';
 
 final accountApiProvider = Provider<AccountApi>((ref) => AccountApi());
 final meApiProvider = Provider<MeApi>((ref) => MeApi());
@@ -22,6 +23,19 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
   MeUser? _me;
   InventoryResponse? _inventory;
   bool _busy = false;
+
+  String _resolveImageUrl(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) {
+      final base = ApiClient().dio.options.baseUrl;
+      return Uri.parse(base).resolve(trimmed).toString();
+    }
+    return trimmed;
+  }
 
   @override
   void dispose() {
@@ -147,6 +161,31 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     }
   }
 
+  Future<void> _setIcon(String iconId) async {
+    if (_busy) return;
+
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null) return;
+
+    setState(() => _busy = true);
+    try {
+      final meApi = ref.read(meApiProvider);
+      await meApi.updateMe(token: session.token, iconId: iconId);
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('アイコンを変更しました')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('アイコン変更に失敗しました: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final sessionAsync = ref.watch(authControllerProvider);
@@ -203,6 +242,57 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
               padding: const EdgeInsets.all(16),
               children: [
                 _ProfileSummaryCard(me: me, inventory: inventory),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('アイコン変更'),
+                        const SizedBox(height: 12),
+                        if (me == null || inventory == null) ...[
+                          const Text('読み込み中…'),
+                        ] else ...[
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              for (final icon in inventory.icons)
+                                InkWell(
+                                  onTap: _busy ? null : () => _setIcon(icon.id),
+                                  borderRadius: BorderRadius.circular(32),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        width: 2,
+                                        color: icon.id == me.iconId
+                                            ? Theme.of(context).colorScheme.primary
+                                            : Colors.transparent,
+                                      ),
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: 28,
+                                      backgroundImage: NetworkImage(
+                                        _resolveImageUrl(icon.imageUrl),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _busy ? '更新中…' : 'タップで装備できます',
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 ListTile(
                   title: const Text('現在のメール'),
@@ -273,6 +363,19 @@ class _ProfileSummaryCard extends StatelessWidget {
   final MeUser? me;
   final InventoryResponse? inventory;
 
+  String _resolveImageUrl(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) {
+      final base = ApiClient().dio.options.baseUrl;
+      return Uri.parse(base).resolve(trimmed).toString();
+    }
+    return trimmed;
+  }
+
   @override
   Widget build(BuildContext context) {
     final me0 = me;
@@ -297,7 +400,7 @@ class _ProfileSummaryCard extends StatelessWidget {
     String? iconUrl;
     for (final icon in inventory0.icons) {
       if (icon.id == me0.iconId) {
-        iconUrl = icon.imageUrl;
+        iconUrl = _resolveImageUrl(icon.imageUrl);
         break;
       }
     }

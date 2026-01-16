@@ -25,4 +25,18 @@ class MeApi {
 
     return InventoryResponse.fromJson(res.data as Map<String, dynamic>);
   }
+
+  Future<MeUser> updateMe({required String token, String? iconId}) async {
+    final data = <String, dynamic>{};
+    if (iconId != null) data['iconId'] = iconId;
+
+    final res = await _dio.patch(
+      '/api/me',
+      data: data,
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+
+    final body = res.data as Map<String, dynamic>;
+    return MeUser.fromJson(body['user'] as Map<String, dynamic>);
+  }
 }

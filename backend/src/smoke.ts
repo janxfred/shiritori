@@ -157,7 +157,7 @@ async function main() {
         update: {},
         create: {
           id: "default_demon",
-          imageUrl: "https://example.com/default_demon.png",
+          imageUrl: "/static/default_demon.jpg",
           rarity: 1,
         },
       });
@@ -214,13 +214,23 @@ async function main() {
       const matchmake = await app.inject({
         method: "POST",
         url: "/api/matchmake",
-        payload: { userId: u1!.id },
+        headers: { authorization: `Bearer ${token}` },
+        payload: {},
       });
       // 404 is allowed if no candidate, but seed should make it 200.
       if (matchmake.statusCode !== 200 && matchmake.statusCode !== 404) {
         throw new Error(
           `/api/matchmake: status=${matchmake.statusCode} body=${matchmake.body}`
         );
+      }
+
+      if (matchmake.statusCode === 200) {
+        const json = matchmake.json() as any;
+        if (!json?.session?.id) {
+          throw new Error(
+            `/api/matchmake: expected session.id body=${matchmake.body}`
+          );
+        }
       }
 
       const match = await app.inject({

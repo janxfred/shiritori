@@ -10,7 +10,13 @@ class ApiClient {
   late final Dio _dio;
 
   static String get _baseUrl {
-    final fromEnv = dotenv.env['API_BASE_URL']?.trim();
+    String? fromEnv;
+    try {
+      fromEnv = dotenv.env['API_BASE_URL']?.trim();
+    } catch (_) {
+      // flutter_dotenv が未初期化（テスト等）でもフォールバックできるようにする
+      fromEnv = null;
+    }
     if (fromEnv != null && fromEnv.isNotEmpty) {
       return fromEnv;
     }

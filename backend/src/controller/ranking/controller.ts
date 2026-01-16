@@ -1,5 +1,6 @@
 import { getPrisma, isDatabaseConfigured } from "../../database";
 import { type ServerInstance } from "../../lib/fastify";
+import { normalizeIconImageUrl } from "../../lib/asset_url";
 import {
   errorResponseSchema,
   getRankingResponseSchema,
@@ -79,7 +80,7 @@ export default async function (fastify: ServerInstance) {
           name: user.name,
           icon: {
             id: user.equippedIcon.id,
-            imageUrl: user.equippedIcon.imageUrl,
+            imageUrl: normalizeIconImageUrl(user.equippedIcon.imageUrl),
           },
           title: user.equippedTitle1
             ? { id: user.equippedTitle1.id, name: user.equippedTitle1.name }

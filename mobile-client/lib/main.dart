@@ -12,6 +12,9 @@ import 'features/users/pages/user_detail_page.dart';
 import 'features/account/pages/account_settings_page.dart';
 import 'features/auth/pages/login_page.dart';
 import 'features/auth/pages/signup_page.dart';
+import 'features/ranked/pages/ranked_match_page.dart';
+import 'features/pvp/pages/pvp_game_page.dart';
+import 'features/pvp/models/pvp_models.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +41,22 @@ final _router = GoRouter(
     GoRoute(
       path: '/',
       builder: (context, state) => const GamePage(),
+    ),
+    GoRoute(
+      path: '/ranked',
+      builder: (context, state) => const RankedMatchPage(),
+    ),
+    GoRoute(
+      path: '/pvp/:sessionId',
+      builder: (context, state) {
+        final sessionId = state.pathParameters['sessionId']!;
+        final extra = state.extra;
+        return PvpGamePage(
+          sessionId: sessionId,
+          initial: extra is PvpStartResponse ? extra : null,
+          opponent: extra is PvpOpponent ? extra : null,
+        );
+      },
     ),
     GoRoute(
       path: '/account',

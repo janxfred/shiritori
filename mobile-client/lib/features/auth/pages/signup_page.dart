@@ -80,6 +80,10 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           children: [
             TextField(
               controller: _nameController,
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.next,
+              autocorrect: false,
+              enableSuggestions: true,
               decoration: const InputDecoration(
                 labelText: 'プレイヤー名',
                 border: OutlineInputBorder(),

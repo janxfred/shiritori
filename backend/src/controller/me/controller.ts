@@ -1,6 +1,8 @@
 import { getPrisma, isDatabaseConfigured } from "../../database";
+import { normalizeIconImageUrl } from "../../lib/asset_url";
 import { verifyAuthToken } from "../../lib/auth";
-import { type ServerInstance } from "../../lib/fastify";
+import type { ServerInstance } from "../../lib/fastify";
+import { ICON_CATALOG, ICON_IDS } from "../../lib/icon_catalog";
 import {
   errorResponseSchema,
   getInventoryResponseSchema,
@@ -252,6 +254,30 @@ export default async function (fastify: ServerInstance) {
       });
       if (!user) return reply.status(401).send({ message: "認証が必要です" });
 
+      // 任意選択要件: デフォルト配布アイコンはマスタも含めて自己修復する
+      await Promise.all(
+        ICON_CATALOG.map((icon) =>
+          prisma.iconMaster.upsert({
+            where: { id: icon.id },
+            update: {
+              imageUrl: icon.imageUrl,
+              rarity: icon.rarity,
+            },
+            create: {
+              id: icon.id,
+              imageUrl: icon.imageUrl,
+              rarity: icon.rarity,
+            },
+          })
+        )
+      );
+
+      // 任意選択要件: デフォルト配布アイコンは全て所持扱いにする
+      await prisma.userIcon.createMany({
+        data: ICON_IDS.map((iconId) => ({ userId: payload.userId, iconId })),
+        skipDuplicates: true,
+      });
+
       const [icons, messages, titles, items] = await Promise.all([
         prisma.userIcon.findMany({
           where: { userId: payload.userId },
@@ -285,7 +311,7 @@ export default async function (fastify: ServerInstance) {
         },
         icons: icons.map((x) => ({
           id: x.icon.id,
-          imageUrl: x.icon.imageUrl,
+          imageUrl: normalizeIconImageUrl(x.icon.imageUrl),
           rarity: x.icon.rarity,
         })),
         messages: messages.map((x) => ({

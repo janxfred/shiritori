@@ -1,7 +1,8 @@
 import bcrypt from "bcryptjs";
 import { getPrisma, isDatabaseConfigured } from "../../database";
 import { signAuthToken } from "../../lib/auth";
-import { type ServerInstance } from "../../lib/fastify";
+import type { ServerInstance } from "../../lib/fastify";
+import { ICON_CATALOG, ICON_IDS } from "../../lib/icon_catalog";
 import {
   errorResponseSchema,
   loginRequestSchema,
@@ -11,15 +12,20 @@ import {
 } from "./schema";
 
 async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
-  await prisma.iconMaster.upsert({
-    where: { id: "default_demon" },
-    update: {},
-    create: {
-      id: "default_demon",
-      imageUrl: "https://example.com/default_demon.png",
-      rarity: 1,
-    },
-  });
+  for (const icon of ICON_CATALOG) {
+    await prisma.iconMaster.upsert({
+      where: { id: icon.id },
+      update: {
+        imageUrl: icon.imageUrl,
+        rarity: icon.rarity,
+      },
+      create: {
+        id: icon.id,
+        imageUrl: icon.imageUrl,
+        rarity: icon.rarity,
+      },
+    });
+  }
 
   await prisma.messageMaster.upsert({
     where: { id: "msg_default_01" },
@@ -28,6 +34,17 @@ async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
       id: "msg_default_01",
       content: "契約は既に結ばれた。さあ、言葉を捧げよ。",
       rarity: 1,
+    },
+  });
+
+  await prisma.title.upsert({
+    where: { id: "title_main_01" },
+    update: {},
+    create: {
+      id: "title_main_01",
+      name: "新米の契約者",
+      description: "魔界へようこそ。",
+      condition: "default",
     },
   });
 }
@@ -87,12 +104,17 @@ async function findLoginUser(
   if (byId) return { user: byId } as const;
 
   // 2) email (unique)
-  const byEmail = await prisma.user.findUnique({ where: { email: identifier } });
+  const byEmail = await prisma.user.findUnique({
+    where: { email: identifier },
+  });
   if (byEmail) return { user: byEmail } as const;
 
   // 3) name (non-unique) -> disambiguate
   const byName = await prisma.user.findMany({ where: { name: identifier } });
-  if (byName.length === 1) return { user: byName[0]! } as const;
+  if (byName.length === 1) {
+    const user = byName[0];
+    if (user) return { user } as const;
+  }
   if (byName.length >= 2) {
     return {
       error: {
@@ -138,9 +160,16 @@ export default async function (fastify: ServerInstance) {
         data: {
           name,
           passwordHash,
+          title1Id: "title_main_01",
           stats: { create: {} },
-          ownedIcons: { create: { iconId: "default_demon" } },
+          ownedIcons: {
+            createMany: {
+              data: ICON_IDS.map((iconId) => ({ iconId })),
+              skipDuplicates: true,
+            },
+          },
           ownedMessages: { create: { messageId: "msg_default_01" } },
+          ownedTitles: { create: { titleId: "title_main_01" } },
         },
       });
 
@@ -186,7 +215,8 @@ export default async function (fastify: ServerInstance) {
       }
 
       const user = found.user;
-      if (!user) return reply.status(404).send({ message: "ユーザーが見つかりません" });
+      if (!user)
+        return reply.status(404).send({ message: "ユーザーが見つかりません" });
 
       const ok = await bcrypt.compare(password, user.passwordHash);
       if (!ok) {

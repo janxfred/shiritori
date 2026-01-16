@@ -6,8 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../api/game_api.dart';
 import '../models/game_models.dart';
 
-/// 制限時間（ミリ秒）: 2分
-const int timeLimitMs = 2 * 60 * 1000;
+/// 制限時間（ミリ秒）: 40秒
+const int timeLimitMs = 40 * 1000;
 
 /// AIの応答遅延（ミリ秒）
 const int aiResponseDelayMs = 2000;
@@ -25,6 +25,8 @@ class _GamePageState extends State<GamePage>
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _historyScrollController = ScrollController();
 
+  final ValueNotifier<int> _remainingTimeMs = ValueNotifier<int>(timeLimitMs);
+
   // ゲーム状態
   GamePhase _phase = GamePhase.title;
   GameSession? _session;
@@ -33,7 +35,6 @@ class _GamePageState extends State<GamePage>
   bool _isAiThinking = false;
   String? _winner;
   AiLevel _selectedLevel = AiLevel.normal;
-  int _remainingTime = timeLimitMs;
   Timer? _timer;
   // クライアント側でのターン開始時刻（サーバー時間のずれを防ぐため）
   DateTime? _localTurnStartedAt;
@@ -93,6 +94,7 @@ class _GamePageState extends State<GamePage>
     _timer?.cancel();
     _inputController.dispose();
     _historyScrollController.dispose();
+    _remainingTimeMs.dispose();
     _shakeController.dispose();
     _bannerAd?.dispose();
     super.dispose();
@@ -162,7 +164,7 @@ class _GamePageState extends State<GamePage>
     _timer?.cancel();
     // ローカルでターン開始時刻を記録
     _localTurnStartedAt = DateTime.now();
-    _remainingTime = timeLimitMs; // 120000ms = 2分
+    _remainingTimeMs.value = timeLimitMs;
 
     _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) async {
       if (_session == null || _phase != GamePhase.playing || _isAiThinking || _localTurnStartedAt == null) return;
@@ -172,9 +174,7 @@ class _GamePageState extends State<GamePage>
       final elapsed = now - turnStarted;
       final remaining = timeLimitMs - elapsed;
 
-      setState(() {
-        _remainingTime = remaining > 0 ? remaining : 0;
-      });
+      _remainingTimeMs.value = remaining > 0 ? remaining : 0;
 
       // 時間切れチェック
       if (remaining <= 0) {
@@ -199,7 +199,7 @@ class _GamePageState extends State<GamePage>
   /// ターンのタイマーをリセット（AIターン終了後）
   void _resetTurnTimer() {
     _localTurnStartedAt = DateTime.now();
-    _remainingTime = timeLimitMs;
+    _remainingTimeMs.value = timeLimitMs;
   }
 
   /// ゲーム開始
@@ -210,7 +210,7 @@ class _GamePageState extends State<GamePage>
       setState(() {
         _session = response.session;
         _demonMessage = response.message;
-        _remainingTime = timeLimitMs;
+        _remainingTimeMs.value = timeLimitMs;
         _phase = GamePhase.playing;
         _winner = null;
         _showGameOverModal = false;
@@ -558,6 +558,27 @@ class _GamePageState extends State<GamePage>
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
             ),
+
+            const SizedBox(height: 12),
+
+            OutlinedButton(
+              onPressed: () => context.push('/ranked'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFD4AF37),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 48,
+                  vertical: 16,
+                ),
+                side: const BorderSide(color: Color(0xFFD4AF37)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'レート対戦',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
       ),
@@ -596,7 +617,6 @@ class _GamePageState extends State<GamePage>
 
   /// 悪魔ヘッダー（顔 + 台詞 + 残り時間）
   Widget _buildDemonHeader() {
-    final isLowTime = _remainingTime < 30000;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -642,21 +662,27 @@ class _GamePageState extends State<GamePage>
           const SizedBox(width: 12),
           
           // 残り時間
-          Column(
-            children: [
-              Text(
-                _formatTime(_remainingTime),
-                style: TextStyle(
-                  color: isLowTime ? Colors.red : const Color(0xFFD4AF37),
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                'R${_session?.roundCount ?? 0}/${_session?.maxRounds ?? 10}',
-                style: TextStyle(color: Colors.grey[500], fontSize: 12),
-              ),
-            ],
+          ValueListenableBuilder<int>(
+            valueListenable: _remainingTimeMs,
+            builder: (context, remainingMs, _) {
+              final isLowTime = remainingMs < (timeLimitMs ~/ 4);
+              return Column(
+                children: [
+                  Text(
+                    _formatTime(remainingMs),
+                    style: TextStyle(
+                      color: isLowTime ? Colors.red : const Color(0xFFD4AF37),
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'R${_session?.roundCount ?? 0}/${_session?.maxRounds ?? 10}',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),

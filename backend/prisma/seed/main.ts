@@ -1,7 +1,9 @@
 import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+
+import { ICON_CATALOG, ICON_IDS } from "../../src/lib/icon_catalog";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set");
@@ -14,15 +16,20 @@ async function main() {
   console.log("🌱 Seeding database...");
 
   // --- マスタデータ ---
-  await prisma.iconMaster.upsert({
-    where: { id: "default_demon" },
-    update: {},
-    create: {
-      id: "default_demon",
-      imageUrl: "https://example.com/default_demon.png",
-      rarity: 1,
-    },
-  });
+  for (const icon of ICON_CATALOG) {
+    await prisma.iconMaster.upsert({
+      where: { id: icon.id },
+      update: {
+        imageUrl: icon.imageUrl,
+        rarity: icon.rarity,
+      },
+      create: {
+        id: icon.id,
+        imageUrl: icon.imageUrl,
+        rarity: icon.rarity,
+      },
+    });
+  }
 
   await prisma.messageMaster.upsert({
     where: { id: "msg_default_01" },
@@ -118,11 +125,13 @@ async function main() {
       where: { email: u.email },
       update: {
         name: u.name,
+        title1Id: titleIds[0],
       },
       create: {
         email: u.email,
         name: u.name,
         passwordHash,
+        title1Id: titleIds[0],
         // デフォルト装備はスキーマの default に依存
       },
     });
@@ -134,7 +143,7 @@ async function main() {
     });
 
     await prisma.userIcon.createMany({
-      data: [{ userId: user.id, iconId: "default_demon" }],
+      data: ICON_IDS.map((iconId) => ({ userId: user.id, iconId })),
       skipDuplicates: true,
     });
 

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { getPrisma, isDatabaseConfigured } from "../../database";
+import { DEFAULT_ICON_URL } from "../../lib/asset_url";
 import { type ServerInstance } from "../../lib/fastify";
 import {
   buildPaginationResponse,
@@ -36,7 +37,7 @@ async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
     update: {},
     create: {
       id: "default_demon",
-      imageUrl: "https://example.com/default_demon.png",
+      imageUrl: DEFAULT_ICON_URL,
       rarity: 1,
     },
   });

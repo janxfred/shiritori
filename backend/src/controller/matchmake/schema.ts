@@ -1,11 +1,13 @@
 import { z } from "zod";
 
+import { pvpSessionSchema } from "../pvp/schema";
+
 export const errorResponseSchema = z.object({
   message: z.string(),
 });
 
 export const matchmakeRequestSchema = z.object({
-  userId: z.string().min(1),
+  // 認証トークンから userId を特定するため、bodyは空を許容する。
 });
 
 export const matchmakeOpponentSchema = z.object({
@@ -36,6 +38,7 @@ export const matchmakeOpponentSchema = z.object({
 });
 
 export const matchmakeResponseSchema = z.object({
+  session: pvpSessionSchema,
   opponent: matchmakeOpponentSchema,
 });
 
