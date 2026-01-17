@@ -2,11 +2,14 @@ import { getPrisma, isDatabaseConfigured } from "../../database";
 import { normalizeIconImageUrl } from "../../lib/asset_url";
 import { verifyAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
-import { ICON_CATALOG, ICON_IDS } from "../../lib/icon_catalog";
+import { ICON_CATALOG } from "../../lib/icon_catalog";
 import {
   errorResponseSchema,
+  getIconCatalogResponseSchema,
   getInventoryResponseSchema,
   getMeResponseSchema,
+  getTitleCatalogResponseSchema,
+  rewardedAdResponseSchema,
   updateMeRequestSchema,
   updateMeResponseSchema,
 } from "./schema";
@@ -256,6 +259,59 @@ export default async function (fastify: ServerInstance) {
     }
   );
 
+  fastify.post(
+    "/rewarded-ad",
+    {
+      schema: {
+        tags: ["Me"],
+        summary: "リワード広告報酬の受け取り（魂+1）",
+        response: {
+          200: rewardedAdResponseSchema,
+          401: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!isDatabaseConfigured()) {
+        return reply.status(503).send({
+          message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+        });
+      }
+
+      const token = getBearerToken(request);
+      if (!token) return reply.status(401).send({ message: "認証が必要です" });
+
+      const payload = verifyAuthToken({ token });
+      if (!payload)
+        return reply.status(401).send({ message: "認証が必要です" });
+
+      const prisma = getPrisma();
+      const user = await prisma.user.update({
+        where: { id: payload.userId },
+        data: { soulCount: { increment: 1 } },
+        include: { stats: true },
+      });
+
+      const lastMatch = await prisma.matchHistory.findFirst({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        select: { result: true, createdAt: true },
+      });
+
+      return reply.send({
+        message: "魂を1回復しました",
+        user: formatMe({
+          ...user,
+          lastRatingDelta: lastMatch
+            ? ratingDeltaFromResult(lastMatch.result as "win" | "loss" | "draw")
+            : null,
+          lastMatchAt: lastMatch ? lastMatch.createdAt.toISOString() : null,
+        }),
+      });
+    }
+  );
+
   fastify.get(
     "/inventory",
     {
@@ -308,9 +364,9 @@ export default async function (fastify: ServerInstance) {
         )
       );
 
-      // 任意選択要件: デフォルト配布アイコンは全て所持扱いにする
+      // デフォルトアイコンのみは必ず所持扱いにする（自己修復）
       await prisma.userIcon.createMany({
-        data: ICON_IDS.map((iconId) => ({ userId: payload.userId, iconId })),
+        data: [{ userId: payload.userId, iconId: "default_demon" }],
         skipDuplicates: true,
       });
 
@@ -367,6 +423,121 @@ export default async function (fastify: ServerInstance) {
           name: x.item.name,
           description: x.item.description,
           rarity: x.item.rarity,
+        })),
+      });
+    }
+  );
+
+  fastify.get(
+    "/icons",
+    {
+      schema: {
+        tags: ["Me"],
+        summary: "アイコン一覧取得（所持フラグ付き）",
+        response: {
+          200: getIconCatalogResponseSchema,
+          401: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!isDatabaseConfigured()) {
+        return reply.status(503).send({
+          message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+        });
+      }
+
+      const token = getBearerToken(request);
+      if (!token) return reply.status(401).send({ message: "認証が必要です" });
+
+      const payload = verifyAuthToken({ token });
+      if (!payload) return reply.status(401).send({ message: "認証が必要です" });
+
+      const prisma = getPrisma();
+
+      // マスタ自己修復（icon_catalog.ts が配信対象のソース・オブ・トゥルース）
+      await Promise.all(
+        ICON_CATALOG.map((icon) =>
+          prisma.iconMaster.upsert({
+            where: { id: icon.id },
+            update: { imageUrl: icon.imageUrl, rarity: icon.rarity },
+            create: { id: icon.id, imageUrl: icon.imageUrl, rarity: icon.rarity },
+          })
+        )
+      );
+
+      const [all, owned] = await Promise.all([
+        prisma.iconMaster.findMany({
+          select: { id: true, imageUrl: true, rarity: true },
+          orderBy: [{ rarity: "asc" }, { id: "asc" }],
+        }),
+        prisma.userIcon.findMany({
+          where: { userId: payload.userId },
+          select: { iconId: true },
+        }),
+      ]);
+
+      const ownedSet = new Set(owned.map((x) => x.iconId));
+
+      return reply.send({
+        icons: all.map((x) => ({
+          id: x.id,
+          imageUrl: normalizeIconImageUrl(x.imageUrl),
+          rarity: x.rarity,
+          owned: ownedSet.has(x.id),
+        })),
+      });
+    }
+  );
+
+  fastify.get(
+    "/titles",
+    {
+      schema: {
+        tags: ["Me"],
+        summary: "称号一覧取得（所持フラグ付き）",
+        response: {
+          200: getTitleCatalogResponseSchema,
+          401: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!isDatabaseConfigured()) {
+        return reply.status(503).send({
+          message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+        });
+      }
+
+      const token = getBearerToken(request);
+      if (!token) return reply.status(401).send({ message: "認証が必要です" });
+
+      const payload = verifyAuthToken({ token });
+      if (!payload) return reply.status(401).send({ message: "認証が必要です" });
+
+      const prisma = getPrisma();
+
+      const [all, owned] = await Promise.all([
+        prisma.title.findMany({
+          select: { id: true, name: true, condition: true },
+          orderBy: [{ id: "asc" }],
+        }),
+        prisma.userTitle.findMany({
+          where: { userId: payload.userId },
+          select: { titleId: true },
+        }),
+      ]);
+
+      const ownedSet = new Set(owned.map((x) => x.titleId));
+
+      return reply.send({
+        titles: all.map((x) => ({
+          id: x.id,
+          name: x.name,
+          condition: x.condition,
+          owned: ownedSet.has(x.id),
         })),
       });
     }

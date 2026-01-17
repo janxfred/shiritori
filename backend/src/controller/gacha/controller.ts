@@ -1,6 +1,6 @@
 import { getPrisma, isDatabaseConfigured } from "../../database";
 import { verifyAuthToken } from "../../lib/auth";
-import { type ServerInstance } from "../../lib/fastify";
+import type { ServerInstance } from "../../lib/fastify";
 import {
   errorResponseSchema,
   gachaDrawResponseSchema,
@@ -20,7 +20,10 @@ function getBearerToken(request: {
 }
 
 function pickOne<T>(arr: readonly T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]!;
+  const idx = Math.floor(Math.random() * arr.length);
+  const v = arr[idx];
+  if (v === undefined) throw new Error("EMPTY_ARRAY");
+  return v;
 }
 
 export default async function (fastify: ServerInstance) {
@@ -57,7 +60,63 @@ export default async function (fastify: ServerInstance) {
       });
       if (!user) return reply.status(401).send({ message: "認証が必要です" });
 
-      return reply.send({ cost: GACHA_COST, coins: user.coins });
+      // 重複排出あり：所持状況に関わらず全マスタが対象、等確率
+      const [icons, messages, titles, items] = await Promise.all([
+        prisma.iconMaster.findMany({
+          select: { id: true, imageUrl: true, rarity: true },
+        }),
+        prisma.messageMaster.findMany({
+          select: { id: true, content: true, rarity: true },
+        }),
+        prisma.title.findMany({
+          select: { id: true, name: true },
+        }),
+        prisma.itemMaster.findMany({
+          select: { id: true, name: true, rarity: true },
+        }),
+      ]);
+
+      const masterTotal =
+        icons.length + messages.length + titles.length + items.length;
+      if (masterTotal === 0) {
+        return reply.status(503).send({ message: "ガチャの排出対象が未登録です" });
+      }
+
+      const total =
+        icons.length + messages.length + titles.length + items.length;
+      const p = total > 0 ? 1 / total : 0;
+
+      const rates = [
+        ...icons.map((x) => ({
+          type: "icon" as const,
+          id: x.id,
+          imageUrl: x.imageUrl,
+          rarity: x.rarity,
+          probability: p,
+        })),
+        ...messages.map((x) => ({
+          type: "message" as const,
+          id: x.id,
+          content: x.content,
+          rarity: x.rarity,
+          probability: p,
+        })),
+        ...titles.map((x) => ({
+          type: "title" as const,
+          id: x.id,
+          name: x.name,
+          probability: p,
+        })),
+        ...items.map((x) => ({
+          type: "item" as const,
+          id: x.id,
+          name: x.name,
+          rarity: x.rarity,
+          probability: p,
+        })),
+      ];
+
+      return reply.send({ cost: GACHA_COST, coins: user.coins, rates });
     }
   );
 
@@ -67,7 +126,7 @@ export default async function (fastify: ServerInstance) {
       schema: {
         tags: ["Gacha"],
         summary: "召喚（ガチャ）",
-        description: `コイン${GACHA_COST}枚を消費して召喚します。重複は可能な限り回避します。`,
+        description: `コイン${GACHA_COST}枚を消費して召喚します（重複排出あり）。`,
         response: {
           200: gachaDrawResponseSchema,
           400: errorResponseSchema,
@@ -103,46 +162,11 @@ export default async function (fastify: ServerInstance) {
           return { kind: "error" as const, message: "コインが足りません" };
         }
 
-        const [ownedIcons, ownedMessages, ownedTitles, ownedItems] =
-          await Promise.all([
-            tx.userIcon.findMany({
-              where: { userId: me.id },
-              select: { iconId: true },
-            }),
-            tx.userMessage.findMany({
-              where: { userId: me.id },
-              select: { messageId: true },
-            }),
-            tx.userTitle.findMany({
-              where: { userId: me.id },
-              select: { titleId: true },
-            }),
-            tx.userItem.findMany({
-              where: { userId: me.id },
-              select: { itemId: true },
-            }),
-          ]);
-
-        const ownedIconIds = ownedIcons.map((x) => x.iconId);
-        const ownedMessageIds = ownedMessages.map((x) => x.messageId);
-        const ownedTitleIds = ownedTitles.map((x) => x.titleId);
-        const ownedItemIds = ownedItems.map((x) => x.itemId);
-
         const [icons, messages, titles, items] = await Promise.all([
-          tx.iconMaster.findMany({
-            where: ownedIconIds.length ? { id: { notIn: ownedIconIds } } : {},
-          }),
-          tx.messageMaster.findMany({
-            where: ownedMessageIds.length
-              ? { id: { notIn: ownedMessageIds } }
-              : {},
-          }),
-          tx.title.findMany({
-            where: ownedTitleIds.length ? { id: { notIn: ownedTitleIds } } : {},
-          }),
-          tx.itemMaster.findMany({
-            where: ownedItemIds.length ? { id: { notIn: ownedItemIds } } : {},
-          }),
+          tx.iconMaster.findMany(),
+          tx.messageMaster.findMany(),
+          tx.title.findMany(),
+          tx.itemMaster.findMany(),
         ]);
 
         const candidates: Array<
@@ -179,8 +203,9 @@ export default async function (fastify: ServerInstance) {
             where: { id: chosen.id },
           });
           if (!icon) throw new Error("NOT_FOUND");
-          await tx.userIcon.create({
-            data: { userId: me.id, iconId: icon.id },
+          await tx.userIcon.createMany({
+            data: [{ userId: me.id, iconId: icon.id }],
+            skipDuplicates: true,
           });
           return {
             kind: "ok" as const,
@@ -199,8 +224,9 @@ export default async function (fastify: ServerInstance) {
             where: { id: chosen.id },
           });
           if (!msg) throw new Error("NOT_FOUND");
-          await tx.userMessage.create({
-            data: { userId: me.id, messageId: msg.id },
+          await tx.userMessage.createMany({
+            data: [{ userId: me.id, messageId: msg.id }],
+            skipDuplicates: true,
           });
           return {
             kind: "ok" as const,
@@ -217,8 +243,9 @@ export default async function (fastify: ServerInstance) {
         if (chosen.type === "title") {
           const title = await tx.title.findUnique({ where: { id: chosen.id } });
           if (!title) throw new Error("NOT_FOUND");
-          await tx.userTitle.create({
-            data: { userId: me.id, titleId: title.id },
+          await tx.userTitle.createMany({
+            data: [{ userId: me.id, titleId: title.id }],
+            skipDuplicates: true,
           });
           return {
             kind: "ok" as const,
@@ -237,7 +264,10 @@ export default async function (fastify: ServerInstance) {
           where: { id: chosen.id },
         });
         if (!item) throw new Error("NOT_FOUND");
-        await tx.userItem.create({ data: { userId: me.id, itemId: item.id } });
+        await tx.userItem.createMany({
+          data: [{ userId: me.id, itemId: item.id }],
+          skipDuplicates: true,
+        });
         return {
           kind: "ok" as const,
           coins: updatedUser.coins,

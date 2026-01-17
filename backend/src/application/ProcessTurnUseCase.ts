@@ -42,8 +42,6 @@ export interface TurnResult {
   };
   gameOver: boolean;
   winner?: "player" | "ai";
-  /** 延長戦に突入した場合 */
-  overtimeStarted?: boolean;
 }
 
 /**
@@ -184,48 +182,6 @@ function checkRoundEnd(
   playerResult: TurnResult["playerResult"],
   aiResult: NonNullable<TurnResult["aiResult"]>
 ): TurnResult | null {
-  // 延長戦中の場合
-  if (session.isOvertime) {
-    // 延長戦は1ラウンドで決着
-    const playerGain = session.playerCapturedChars.size - session.overtimePlayerCharsAtStart;
-    const aiGain = session.aiCapturedChars.size - session.overtimeAiCharsAtStart;
-
-    if (playerGain < aiGain) {
-      // プレイヤーの方が少ない = プレイヤー勝利
-      session.status = "player_win";
-      const message = getRandomMessage("overtimePlayerWin");
-      updateSession(session);
-      return {
-        success: true,
-        session,
-        playerResult,
-        aiResult: { ...aiResult, message },
-        gameOver: true,
-        winner: "player",
-      };
-    } else if (playerGain > aiGain) {
-      // AIの方が少ない = AI勝利
-      session.status = "ai_win";
-      const message = getRandomMessage("overtimeAiWin");
-      updateSession(session);
-      return {
-        success: true,
-        session,
-        playerResult,
-        aiResult: { ...aiResult, message },
-        gameOver: true,
-        winner: "ai",
-      };
-    } else {
-      // まだ同点 → 延長戦継続
-      session.overtimePlayerCharsAtStart = session.playerCapturedChars.size;
-      session.overtimeAiCharsAtStart = session.aiCapturedChars.size;
-      session.turnStartedAt = new Date();
-      updateSession(session);
-      return null;
-    }
-  }
-
   // 通常ゲーム：10ラウンド終了チェック
   if (session.roundCount >= MAX_ROUNDS) {
     const playerChars = session.playerCapturedChars.size;

@@ -164,6 +164,14 @@ async function main() {
     const token1 = u1.token;
     const token2 = u2.token;
 
+    const beforeCoins = await prisma.user.findMany({
+      where: { id: { in: [u1.userId, u2.userId] } },
+      select: { id: true, coins: true },
+    });
+    const beforeCoinsByUserId = new Map(
+      beforeCoins.map((u) => [u.id, u.coins])
+    );
+
     const mm1 = await app.inject({
       method: "POST",
       url: "/api/matchmake",
@@ -241,26 +249,74 @@ async function main() {
     if (!expectedStartChar) throw new Error("pvp: missing expectedStartChar");
     if (!currentTurnUserId) throw new Error("pvp: missing currentTurnUserId");
 
-    const word = pickWord({ words, startsWith: expectedStartChar });
+    // 早期決着させるため、同一プレイヤーが禁忌語(末尾が『ん』)を2回送信して敗北させる
+    const loserId = currentTurnUserId;
+    const winnerId = loserId === u1.userId ? u2.userId : u1.userId;
+    const submitToken = loserId === u1.userId ? token1 : token2;
 
-    const submitToken = currentTurnUserId === u1.userId ? token1 : token2;
+    const invalidWord = `${expectedStartChar}ん`;
 
-    const submit = await app.inject({
+    const submit1 = await app.inject({
       method: "POST",
       url: `/api/pvp/${sessionId}/submit`,
       headers: { authorization: `Bearer ${submitToken}` },
-      payload: { word },
+      payload: { word: invalidWord },
     });
-    await expectOk(submit, "/api/pvp/:sessionId/submit");
+    await expectOk(submit1, "/api/pvp/:sessionId/submit (1)");
 
-    const submitJson = submit.json() as unknown;
-    if (!isObject(submitJson)) throw new Error("submit: invalid json");
+    const submit2 = await app.inject({
+      method: "POST",
+      url: `/api/pvp/${sessionId}/submit`,
+      headers: { authorization: `Bearer ${submitToken}` },
+      payload: { word: invalidWord },
+    });
+    await expectOk(submit2, "/api/pvp/:sessionId/submit (2)");
+
+    const submit2Json = submit2.json() as unknown;
+    if (!isObject(submit2Json)) throw new Error("submit(2): invalid json");
+    if (submit2Json["gameOver"] !== true) {
+      throw new Error(
+        `pvp: expected gameOver=true but got ${String(submit2Json["gameOver"])}`
+      );
+    }
+
+    const afterCoins = await prisma.user.findMany({
+      where: { id: { in: [u1.userId, u2.userId] } },
+      select: { id: true, coins: true },
+    });
+    const afterCoinsByUserId = new Map(afterCoins.map((u) => [u.id, u.coins]));
+
+    const beforeLoser = beforeCoinsByUserId.get(loserId) ?? 0;
+    const beforeWinner = beforeCoinsByUserId.get(winnerId) ?? 0;
+    const afterLoser = afterCoinsByUserId.get(loserId);
+    const afterWinner = afterCoinsByUserId.get(winnerId);
+
+    if (afterLoser == null || afterWinner == null) {
+      throw new Error("pvp: failed to load coins after match");
+    }
+
+    // backend仕様: 勝利+4 / それ以外+1
+    if (afterWinner !== beforeWinner + 4) {
+      throw new Error(
+        `pvp: winner coins not incremented: before=${beforeWinner} after=${afterWinner}`
+      );
+    }
+    if (afterLoser !== beforeLoser + 1) {
+      throw new Error(
+        `pvp: loser coins not incremented: before=${beforeLoser} after=${afterLoser}`
+      );
+    }
 
     console.log("[smoke:pvp] ok", {
       sessionId,
-      word,
       expectedStartChar,
-      submittedBy: currentTurnUserId,
+      invalidWord,
+      loserId,
+      winnerId,
+      coins: {
+        before: { loser: beforeLoser, winner: beforeWinner },
+        after: { loser: afterLoser, winner: afterWinner },
+      },
     });
   } finally {
     await app.close();

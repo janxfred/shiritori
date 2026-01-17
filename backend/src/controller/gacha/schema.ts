@@ -7,6 +7,39 @@ export const errorResponseSchema = z.object({
 export const gachaStatusResponseSchema = z.object({
   cost: z.number().int(),
   coins: z.number().int(),
+  rates: z
+    .array(
+      z.discriminatedUnion("type", [
+        z.object({
+          type: z.literal("icon"),
+          id: z.string(),
+          imageUrl: z.string(),
+          rarity: z.number().int(),
+          probability: z.number(),
+        }),
+        z.object({
+          type: z.literal("message"),
+          id: z.string(),
+          content: z.string(),
+          rarity: z.number().int(),
+          probability: z.number(),
+        }),
+        z.object({
+          type: z.literal("title"),
+          id: z.string(),
+          name: z.string(),
+          probability: z.number(),
+        }),
+        z.object({
+          type: z.literal("item"),
+          id: z.string(),
+          name: z.string(),
+          rarity: z.number().int(),
+          probability: z.number(),
+        }),
+      ])
+    )
+    .default([]),
 });
 
 export const gachaRewardSchema = z.discriminatedUnion("type", [

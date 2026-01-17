@@ -32,12 +32,6 @@ export interface GameSession {
   aiLevel: AiLevel;
   /** 現在のターン開始時刻 */
   turnStartedAt: Date;
-  /** 延長戦フラグ */
-  isOvertime: boolean;
-  /** 延長戦開始時のプレイヤー確保文字数 */
-  overtimePlayerCharsAtStart: number;
-  /** 延長戦開始時のAI確保文字数 */
-  overtimeAiCharsAtStart: number;
 }
 
 export interface TurnHistoryEntry {
@@ -133,9 +127,6 @@ export function createSession(aiLevel: AiLevel = 3): GameSession {
     createdAt: now,
     aiLevel,
     turnStartedAt: now,
-    isOvertime: false,
-    overtimePlayerCharsAtStart: 0,
-    overtimeAiCharsAtStart: 0,
   };
 
   sessions.set(session.id, session);
@@ -216,6 +207,5 @@ export function sessionToJson(session: GameSession) {
     aiLevel: session.aiLevel,
     turnStartedAt: session.turnStartedAt.toISOString(),
     remainingTimeMs: getRemainingTime(session),
-    isOvertime: session.isOvertime,
   };
 }

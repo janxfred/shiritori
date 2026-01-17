@@ -153,7 +153,6 @@ export default async function (fastify: ServerInstance) {
         aiResult: result.aiResult,
         gameOver: result.gameOver,
         winner: result.winner,
-        overtimeStarted: result.overtimeStarted,
       });
     }
   );
@@ -168,7 +167,7 @@ export default async function (fastify: ServerInstance) {
         tags: ["Game"],
         summary: "制限時間チェック",
         description:
-          "プレイヤーの制限時間（2分）を超過しているかチェックします。",
+          "プレイヤーの制限時間（40秒）を超過しているかチェックします。",
         params: sessionIdParamsSchema,
         response: {
           200: checkTimeResponseSchema,

@@ -68,6 +68,11 @@ export const updateMeResponseSchema = z.object({
   user: meSchema,
 });
 
+export const rewardedAdResponseSchema = z.object({
+  message: z.string(),
+  user: meSchema,
+});
+
 export const inventoryItemSchema = z.object({
   id: z.string(),
   rarity: z.number().int(),
@@ -104,4 +109,26 @@ export const getInventoryResponseSchema = z.object({
   messages: z.array(inventoryMessageSchema),
   titles: z.array(inventoryTitleSchema),
   items: z.array(inventoryOwnedItemSchema),
+});
+
+export const iconCatalogEntrySchema = z.object({
+  id: z.string(),
+  imageUrl: z.string(),
+  rarity: z.number().int(),
+  owned: z.boolean(),
+});
+
+export const getIconCatalogResponseSchema = z.object({
+  icons: z.array(iconCatalogEntrySchema),
+});
+
+export const titleCatalogEntrySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  condition: z.string(),
+  owned: z.boolean(),
+});
+
+export const getTitleCatalogResponseSchema = z.object({
+  titles: z.array(titleCatalogEntrySchema),
 });

@@ -15,6 +15,12 @@ export const ICON_CATALOG: readonly IconCatalogEntry[] = [
     staticFileName: "default_demon.jpg",
   },
   {
+    id: "angel_white",
+    imageUrl: "/static/angel_white.png",
+    rarity: 1,
+    staticFileName: "angel_white.png",
+  },
+  {
     id: "demon_black_red",
     imageUrl: "/static/demon_black_red.png",
     rarity: 1,
@@ -43,6 +49,12 @@ export const ICON_CATALOG: readonly IconCatalogEntry[] = [
     imageUrl: "/static/demon_white_gray_horn.png",
     rarity: 1,
     staticFileName: "demon_white_gray_horn.png",
+  },
+  {
+    id: "demon_white_gray",
+    imageUrl: "/static/demon_white_gray.jpg",
+    rarity: 1,
+    staticFileName: "demon_white_gray.jpg",
   },
 ] as const;
 

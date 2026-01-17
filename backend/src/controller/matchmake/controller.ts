@@ -83,7 +83,7 @@ export default async function (fastify: ServerInstance) {
       const prisma = getPrisma();
       const me = await prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, rating: true, isCheater: true },
+        select: { id: true, rating: true, isCheater: true, soulCount: true },
       });
 
       if (!me) {
@@ -94,6 +94,10 @@ export default async function (fastify: ServerInstance) {
         return reply
           .status(403)
           .send({ message: "このアカウントは利用できません" });
+      }
+
+      if (me.soulCount < 1) {
+        return reply.status(403).send({ message: "魂が足りません" });
       }
 
       // 先に相手から割り当てられているPvPセッションがあれば、それを返す
@@ -126,6 +130,14 @@ export default async function (fastify: ServerInstance) {
               totalLosses: stats.totalLosses,
               totalDraws: stats.totalDraws,
             });
+
+            const consumed = await prisma.user.updateMany({
+              where: { id: me.id, soulCount: { gte: 1 } },
+              data: { soulCount: { decrement: 1 } },
+            });
+            if (consumed.count !== 1) {
+              return reply.status(403).send({ message: "魂が足りません" });
+            }
 
             return reply.send({
               session: sessionToJson(session),
@@ -165,6 +177,7 @@ export default async function (fastify: ServerInstance) {
         where: {
           id: { not: me.id },
           isCheater: false,
+          soulCount: { gte: 1 },
           rating: { gte: minRating, lte: maxRating },
         },
         take: 50,
@@ -227,6 +240,14 @@ export default async function (fastify: ServerInstance) {
         return reply
           .status(404)
           .send({ message: "条件に合う対戦相手が見つかりません" });
+      }
+
+      const consumed = await prisma.user.updateMany({
+        where: { id: me.id, soulCount: { gte: 1 } },
+        data: { soulCount: { decrement: 1 } },
+      });
+      if (consumed.count !== 1) {
+        return reply.status(403).send({ message: "魂が足りません" });
       }
 
       const stats =

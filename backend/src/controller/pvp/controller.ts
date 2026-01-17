@@ -124,10 +124,33 @@ async function commitRatedResultIfNeeded(params: {
 > {
   const { session, winnerUserId, viewerUserId } = params;
 
-  if (session.resultCommitted) return undefined;
+  const debug = process.env.PVP_DEBUG === "true";
+
+  const debugLog = (message: string, extra?: Record<string, unknown>) => {
+    if (!debug) return;
+    // eslint-disable-next-line no-console
+    console.log("[pvp:commit]", message, {
+      sessionId: session.id,
+      status: session.status,
+      resultCommitted: session.resultCommitted,
+      p1: session.player1Id,
+      p2: session.player2Id,
+      winnerUserId,
+      viewerUserId,
+      ...(extra ?? {}),
+    });
+  };
+
+  if (session.resultCommitted) {
+    debugLog("skip: already committed");
+    return undefined;
+  }
 
   // DB未設定ならレート対戦として成立しないため、ここで何もしない。
-  if (!isDatabaseConfigured()) return undefined;
+  if (!isDatabaseConfigured()) {
+    debugLog("skip: database not configured");
+    return undefined;
+  }
 
   const prisma = getPrisma();
 
@@ -149,6 +172,15 @@ async function commitRatedResultIfNeeded(params: {
 
   const p1CoinDelta = coinDeltaFromResult(p1Result);
   const p2CoinDelta = coinDeltaFromResult(p2Result);
+
+  debugLog("start", {
+    p1Result,
+    p2Result,
+    p1Delta,
+    p2Delta,
+    p1CoinDelta,
+    p2CoinDelta,
+  });
 
   const [p1, p2] = await Promise.all([
     prisma.user.findUnique({
@@ -199,7 +231,7 @@ async function commitRatedResultIfNeeded(params: {
           },
         },
       },
-      select: { id: true, rating: true },
+      select: { id: true, rating: true, coins: true },
     });
 
     const updatedP2 = await tx.user.update({
@@ -214,7 +246,7 @@ async function commitRatedResultIfNeeded(params: {
           },
         },
       },
-      select: { id: true, rating: true },
+      select: { id: true, rating: true, coins: true },
     });
 
     await tx.matchHistory.createMany({
@@ -229,6 +261,11 @@ async function commitRatedResultIfNeeded(params: {
 
   session.resultCommitted = true;
   await updatePvpSession(session);
+
+  debugLog("committed", {
+    updatedP1: updated.updatedP1,
+    updatedP2: updated.updatedP2,
+  });
 
   const viewerIsP1 = viewerUserId === session.player1Id;
   const user = viewerIsP1 ? updated.updatedP1 : updated.updatedP2;
@@ -286,13 +323,17 @@ export default async function (fastify: ServerInstance) {
       const prisma = getPrisma();
       const me = await prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, isCheater: true },
+        select: { id: true, isCheater: true, soulCount: true },
       });
       if (!me) return reply.status(401).send({ message: "認証が必要です" });
       if (me.isCheater)
         return reply
           .status(403)
           .send({ message: "このアカウントは利用できません" });
+
+      if (me.soulCount < 1) {
+        return reply.status(403).send({ message: "魂が足りません" });
+      }
 
       const { opponentId } = request.body;
       if (opponentId === payload.userId) {
@@ -332,6 +373,14 @@ export default async function (fastify: ServerInstance) {
         totalLosses: stats.totalLosses,
         totalDraws: stats.totalDraws,
       });
+
+      const consumed = await prisma.user.updateMany({
+        where: { id: me.id, soulCount: { gte: 1 } },
+        data: { soulCount: { decrement: 1 } },
+      });
+      if (consumed.count !== 1) {
+        return reply.status(403).send({ message: "魂が足りません" });
+      }
 
       const session = await createPvpSession({
         player1Id: payload.userId,
@@ -414,6 +463,32 @@ export default async function (fastify: ServerInstance) {
           .send({ message: "このセッションには参加していません" });
       }
 
+      // クライアントがcheck-timeを叩けないまま離脱/復帰したケースでも、
+      // セッション取得で時間切れ決着→レート/コイン反映が漏れないようにする。
+      if (session.status === "playing" && isPvpTimeExpired(session)) {
+        const loserId = session.currentTurnUserId;
+        const winnerId = getOpponentId({ session, userId: loserId });
+
+        session.turnCount++;
+        session.history.push({
+          turn: session.turnCount,
+          playerId: loserId,
+          word: "(時間切れ)",
+          isValid: false,
+          capturedChars: [],
+          message: "時は金なり…汝は時を浪費した。敗北だ。",
+        });
+
+        session.status = session.player1Id === winnerId ? "p1_win" : "p2_win";
+        await updatePvpSession(session);
+
+        await commitRatedResultIfNeeded({
+          session,
+          winnerUserId: winnerId,
+          viewerUserId: payload.userId,
+        });
+      }
+
       return reply.send({ session: sessionToJson(session) });
     }
   );
@@ -470,6 +545,11 @@ export default async function (fastify: ServerInstance) {
 
       if (session.status !== "playing") {
         const winnerUserId = computeWinnerUserId(session);
+        const rated = await commitRatedResultIfNeeded({
+          session,
+          winnerUserId,
+          viewerUserId: payload.userId,
+        });
         return reply.send({
           session: sessionToJson(session),
           playerResult: {
@@ -480,6 +560,7 @@ export default async function (fastify: ServerInstance) {
           },
           gameOver: true,
           winnerUserId,
+          ...(rated ? { rated } : {}),
         });
       }
 

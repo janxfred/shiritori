@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { getPrisma, isDatabaseConfigured } from "../../database";
 import { signAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
-import { ICON_CATALOG, ICON_IDS } from "../../lib/icon_catalog";
+import { ICON_CATALOG } from "../../lib/icon_catalog";
 import {
   errorResponseSchema,
   loginRequestSchema,
@@ -162,12 +162,7 @@ export default async function (fastify: ServerInstance) {
           passwordHash,
           title1Id: "title_main_01",
           stats: { create: {} },
-          ownedIcons: {
-            createMany: {
-              data: ICON_IDS.map((iconId) => ({ iconId })),
-              skipDuplicates: true,
-            },
-          },
+          ownedIcons: { create: { iconId: "default_demon" } },
           ownedMessages: { create: { messageId: "msg_default_01" } },
           ownedTitles: { create: { titleId: "title_main_01" } },
         },

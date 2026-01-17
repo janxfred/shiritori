@@ -44,7 +44,6 @@ const sessionSchema = z.object({
   aiLevel: aiLevelSchema,
   turnStartedAt: z.string(),
   remainingTimeMs: z.number(),
-  isOvertime: z.boolean(),
 });
 
 /** ゲーム開始リクエスト */
@@ -88,7 +87,6 @@ export const submitWordResponseSchema = z.object({
   aiResult: turnResultSchema.optional(),
   gameOver: z.boolean(),
   winner: z.enum(["player", "ai"]).optional(),
-  overtimeStarted: z.boolean().optional(),
 });
 
 /** ライフサイクル（非アクティブ時間通知）リクエスト */
