@@ -8,6 +8,7 @@ import {
   getIconCatalogResponseSchema,
   getInventoryResponseSchema,
   getMeResponseSchema,
+  getMessageCatalogResponseSchema,
   getTitleCatalogResponseSchema,
   rewardedAdResponseSchema,
   updateMeRequestSchema,
@@ -543,6 +544,60 @@ export default async function (fastify: ServerInstance) {
           id: x.id,
           name: x.name,
           condition: x.condition,
+          owned: ownedSet.has(x.id),
+        })),
+      });
+    }
+  );
+
+  fastify.get(
+    "/messages",
+    {
+      schema: {
+        tags: ["Me"],
+        summary: "メッセージ一覧取得（所持フラグ付き）",
+        response: {
+          200: getMessageCatalogResponseSchema,
+          401: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!isDatabaseConfigured()) {
+        return reply.status(503).send({
+          message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+        });
+      }
+
+      const token = getBearerToken(request);
+      if (!token) return reply.status(401).send({ message: "認証が必要です" });
+
+      const payload = verifyAuthToken({ token });
+      if (!payload)
+        return reply.status(401).send({ message: "認証が必要です" });
+
+      const prisma = getPrisma();
+
+      const [all, owned] = await Promise.all([
+        prisma.messageMaster.findMany({
+          select: { id: true, content: true, condition: true, rarity: true },
+          orderBy: [{ rarity: "asc" }, { id: "asc" }],
+        }),
+        prisma.userMessage.findMany({
+          where: { userId: payload.userId },
+          select: { messageId: true },
+        }),
+      ]);
+
+      const ownedSet = new Set(owned.map((x) => x.messageId));
+
+      return reply.send({
+        messages: all.map((x) => ({
+          id: x.id,
+          content: x.content,
+          condition: x.condition,
+          rarity: x.rarity,
           owned: ownedSet.has(x.id),
         })),
       });

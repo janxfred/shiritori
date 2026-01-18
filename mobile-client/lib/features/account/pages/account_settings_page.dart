@@ -562,6 +562,13 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                       children: [
                         const Text('メッセージ変更'),
                         const SizedBox(height: 12),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('メッセージ一覧'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => context.push('/messages'),
+                        ),
+                        const SizedBox(height: 12),
                         if (me == null || inventory == null) ...[
                           const Text('読み込み中…'),
                         ] else ...[

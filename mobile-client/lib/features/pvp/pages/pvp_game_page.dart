@@ -469,7 +469,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                                 border: Border.all(color: Colors.grey[700]!),
                               ),
                               child: Text(
-                                opponent?.titleName ?? '称号: なし',
+                                opponent?.messageContent ?? '',
                                 style: TextStyle(
                                   color: Colors.grey[300],
                                   fontSize: 14,

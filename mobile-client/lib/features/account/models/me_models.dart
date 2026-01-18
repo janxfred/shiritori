@@ -303,3 +303,43 @@ class TitleCatalogResponse {
     );
   }
 }
+
+class MessageCatalogEntry {
+  const MessageCatalogEntry({
+    required this.id,
+    required this.content,
+    required this.condition,
+    required this.rarity,
+    required this.owned,
+  });
+
+  final String id;
+  final String content;
+  final String condition;
+  final int rarity;
+  final bool owned;
+
+  factory MessageCatalogEntry.fromJson(Map<String, dynamic> json) {
+    return MessageCatalogEntry(
+      id: json['id'] as String,
+      content: json['content'] as String,
+      condition: json['condition'] as String,
+      rarity: (json['rarity'] as num).toInt(),
+      owned: json['owned'] as bool,
+    );
+  }
+}
+
+class MessageCatalogResponse {
+  const MessageCatalogResponse({required this.messages});
+
+  final List<MessageCatalogEntry> messages;
+
+  factory MessageCatalogResponse.fromJson(Map<String, dynamic> json) {
+    return MessageCatalogResponse(
+      messages: (json['messages'] as List<dynamic>)
+          .map((x) => MessageCatalogEntry.fromJson(x as Map<String, dynamic>))
+          .toList(growable: false),
+    );
+  }
+}

@@ -80,9 +80,10 @@ model User {
 // ===========================================
 
 model MessageMaster {
-  id      String @id
-  content String
-  rarity  Int    @default(1)
+  id        String @id
+  content   String
+  condition String @default("ガチャで獲得")
+  rarity    Int    @default(1)
 
   users      UserMessage[]
   equippedBy User[]

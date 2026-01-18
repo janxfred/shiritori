@@ -79,4 +79,13 @@ class MeApi {
 
     return TitleCatalogResponse.fromJson(res.data as Map<String, dynamic>);
   }
+
+  Future<MessageCatalogResponse> getMessageCatalog({required String token}) async {
+    final res = await _dio.get(
+      '/api/me/messages',
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+
+    return MessageCatalogResponse.fromJson(res.data as Map<String, dynamic>);
+  }
 }

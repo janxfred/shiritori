@@ -132,3 +132,15 @@ export const titleCatalogEntrySchema = z.object({
 export const getTitleCatalogResponseSchema = z.object({
   titles: z.array(titleCatalogEntrySchema),
 });
+
+export const messageCatalogEntrySchema = z.object({
+  id: z.string(),
+  content: z.string(),
+  condition: z.string(),
+  rarity: z.number().int(),
+  owned: z.boolean(),
+});
+
+export const getMessageCatalogResponseSchema = z.object({
+  messages: z.array(messageCatalogEntrySchema),
+});

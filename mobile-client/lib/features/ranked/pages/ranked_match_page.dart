@@ -123,6 +123,11 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('対人戦'),
+        leading: IconButton(
+          tooltip: 'タイトルへ',
+          onPressed: () => context.go('/'),
+          icon: const Icon(Icons.home),
+        ),
       ),
       body: sessionAsync.when(
         data: (_) {
