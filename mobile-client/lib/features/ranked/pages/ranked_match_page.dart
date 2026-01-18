@@ -31,7 +31,7 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
       _refreshMe();
     }
 
-    // 「レート対戦」ボタン押下でこの画面に遷移してきたら、即マッチング開始
+    // 「対人戦」ボタン押下でこの画面に遷移してきたら、即マッチング開始
     if (session != null && !_matchmakeRequested) {
       _matchmakeRequested = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -64,6 +64,14 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
       final api = ref.read(rankedApiProvider);
       final res = await api.matchmake(token: session.token);
       if (!mounted) return;
+
+      // PvP開始時に魂は必ず1消費される（失敗時は例外になるためここには来ない）
+      ref.read(authControllerProvider.notifier).updateUser(
+            session.user.copyWith(
+              soulCount: (session.user.soulCount - 1).clamp(0, 1 << 30),
+            ),
+          );
+
       final pvpOpponent = PvpOpponent(
         userId: res.opponent.userId,
         name: res.opponent.name,
@@ -75,6 +83,25 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
         winRate: res.opponent.winRate,
         maxStreak: res.opponent.maxStreak,
       );
+
+      try {
+        final meApi = ref.read(meApiProvider);
+        final me = await meApi.getMe(token: session.token);
+        if (mounted) {
+          ref.read(authControllerProvider.notifier).updateUser(
+                session.user.copyWith(
+                  name: me.name,
+                  email: me.email,
+                  coins: me.coins,
+                  soulCount: me.soulCount,
+                ),
+              );
+        }
+      } catch (_) {
+        // 失敗しても対戦は開始できる
+      }
+
+      if (!mounted) return;
 
       // 相手が見つかったら即対戦開始（この画面に戻らない）
       context.go('/pvp/${res.sessionId}', extra: pvpOpponent);
@@ -95,7 +122,7 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('レート対戦'),
+        title: const Text('対人戦'),
       ),
       body: sessionAsync.when(
         data: (_) {
@@ -106,7 +133,7 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('レート対戦にはログインが必要です'),
+                    const Text('対人戦にはログインが必要です'),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () => context.push('/login'),

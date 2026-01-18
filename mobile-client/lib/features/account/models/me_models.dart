@@ -229,3 +229,77 @@ class InventoryResponse {
     );
   }
 }
+
+class IconCatalogEntry {
+  const IconCatalogEntry({
+    required this.id,
+    required this.imageUrl,
+    required this.rarity,
+    required this.owned,
+  });
+
+  final String id;
+  final String imageUrl;
+  final int rarity;
+  final bool owned;
+
+  factory IconCatalogEntry.fromJson(Map<String, dynamic> json) {
+    return IconCatalogEntry(
+      id: json['id'] as String,
+      imageUrl: json['imageUrl'] as String,
+      rarity: (json['rarity'] as num).toInt(),
+      owned: json['owned'] as bool,
+    );
+  }
+}
+
+class IconCatalogResponse {
+  const IconCatalogResponse({required this.icons});
+
+  final List<IconCatalogEntry> icons;
+
+  factory IconCatalogResponse.fromJson(Map<String, dynamic> json) {
+    return IconCatalogResponse(
+      icons: (json['icons'] as List<dynamic>)
+          .map((x) => IconCatalogEntry.fromJson(x as Map<String, dynamic>))
+          .toList(growable: false),
+    );
+  }
+}
+
+class TitleCatalogEntry {
+  const TitleCatalogEntry({
+    required this.id,
+    required this.name,
+    required this.condition,
+    required this.owned,
+  });
+
+  final String id;
+  final String name;
+  final String condition;
+  final bool owned;
+
+  factory TitleCatalogEntry.fromJson(Map<String, dynamic> json) {
+    return TitleCatalogEntry(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      condition: json['condition'] as String,
+      owned: json['owned'] as bool,
+    );
+  }
+}
+
+class TitleCatalogResponse {
+  const TitleCatalogResponse({required this.titles});
+
+  final List<TitleCatalogEntry> titles;
+
+  factory TitleCatalogResponse.fromJson(Map<String, dynamic> json) {
+    return TitleCatalogResponse(
+      titles: (json['titles'] as List<dynamic>)
+          .map((x) => TitleCatalogEntry.fromJson(x as Map<String, dynamic>))
+          .toList(growable: false),
+    );
+  }
+}

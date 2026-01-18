@@ -1,6 +1,7 @@
 import { getPrisma, isDatabaseConfigured } from "../../database";
 import { verifyAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
+import { ICON_CATALOG } from "../../lib/icon_catalog";
 import {
   errorResponseSchema,
   gachaDrawResponseSchema,
@@ -60,6 +61,21 @@ export default async function (fastify: ServerInstance) {
       });
       if (!user) return reply.status(401).send({ message: "認証が必要です" });
 
+      // マスタ自己修復（少なくともアイコンは必ず候補に入るようにする）
+      await Promise.all(
+        ICON_CATALOG.map((icon) =>
+          prisma.iconMaster.upsert({
+            where: { id: icon.id },
+            update: { imageUrl: icon.imageUrl, rarity: icon.rarity },
+            create: {
+              id: icon.id,
+              imageUrl: icon.imageUrl,
+              rarity: icon.rarity,
+            },
+          })
+        )
+      );
+
       // 重複排出あり：所持状況に関わらず全マスタが対象、等確率
       const [icons, messages, titles, items] = await Promise.all([
         prisma.iconMaster.findMany({
@@ -79,7 +95,9 @@ export default async function (fastify: ServerInstance) {
       const masterTotal =
         icons.length + messages.length + titles.length + items.length;
       if (masterTotal === 0) {
-        return reply.status(503).send({ message: "ガチャの排出対象が未登録です" });
+        return reply
+          .status(503)
+          .send({ message: "ガチャの排出対象が未登録です" });
       }
 
       const total =
@@ -161,6 +179,21 @@ export default async function (fastify: ServerInstance) {
         if (me.coins < GACHA_COST) {
           return { kind: "error" as const, message: "コインが足りません" };
         }
+
+        // マスタ自己修復（少なくともアイコンは必ず候補に入るようにする）
+        await Promise.all(
+          ICON_CATALOG.map((icon) =>
+            tx.iconMaster.upsert({
+              where: { id: icon.id },
+              update: { imageUrl: icon.imageUrl, rarity: icon.rarity },
+              create: {
+                id: icon.id,
+                imageUrl: icon.imageUrl,
+                rarity: icon.rarity,
+              },
+            })
+          )
+        );
 
         const [icons, messages, titles, items] = await Promise.all([
           tx.iconMaster.findMany(),

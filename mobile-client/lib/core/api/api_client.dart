@@ -49,6 +49,36 @@ class ApiClient {
 
     // エラーログのみ出力するインターセプター
     _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        // body無しリクエストなのに Content-Type: application/json が付くと、
+        // Fastify 側で "Body cannot be empty when content-type is set to 'application/json'" になり得る。
+        if (options.data == null) {
+          options.headers.remove('Content-Type');
+          options.headers.remove('content-type');
+        }
+        handler.next(options);
+      },
+      onResponse: (response, handler) {
+        if (kDebugMode) {
+          final path = response.requestOptions.path;
+          if (path == '/api/me') {
+            final data = response.data;
+            if (data is Map && data['user'] is Map) {
+              final user = data['user'] as Map;
+              final coins = user['coins'];
+              final soulCount = user['soulCount'];
+              stderr.writeln('[API] GET /api/me -> coins=$coins soulCount=$soulCount');
+            } else {
+              stderr.writeln('[API] GET /api/me -> (unexpected body)');
+            }
+          }
+
+          if (path.contains('/api/pvp/') && (path.endsWith('/submit') || path.endsWith('/check-time'))) {
+            stderr.writeln('[API] ${response.requestOptions.method} $path -> ${response.statusCode}');
+          }
+        }
+        handler.next(response);
+      },
       onError: (error, handler) {
         if (kDebugMode) {
           stderr.writeln('[API Error] ${error.requestOptions.method} ${error.requestOptions.uri}');

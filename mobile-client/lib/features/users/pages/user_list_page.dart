@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../providers/users_provider.dart';
 
@@ -34,8 +33,6 @@ class UserListPage extends ConsumerWidget {
                   ),
                   title: Text(user.name),
                   subtitle: Text(user.email),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/users/${user.id}'),
                 );
               },
             ),

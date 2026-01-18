@@ -146,7 +146,7 @@ async function commitRatedResultIfNeeded(params: {
     return undefined;
   }
 
-  // DB未設定ならレート対戦として成立しないため、ここで何もしない。
+  // DB未設定なら対人戦として成立しないため、ここで何もしない。
   if (!isDatabaseConfigured()) {
     debugLog("skip: database not configured");
     return undefined;
@@ -289,7 +289,7 @@ export default async function (fastify: ServerInstance) {
     {
       schema: {
         tags: ["PvP"],
-        summary: "レート対戦開始（PvPセッション作成）",
+        summary: "対人戦開始（PvPセッション作成）",
         body: pvpStartRequestSchema,
         response: {
           200: pvpStartResponseSchema,

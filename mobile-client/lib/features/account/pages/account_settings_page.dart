@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../api/account_api.dart';
 import '../api/me_api.dart';
@@ -24,6 +28,13 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
   InventoryResponse? _inventory;
   bool _busy = false;
 
+  RewardedAd? _rewardedAd;
+  bool _loadingRewardedAd = false;
+  bool _claimingRewardedAd = false;
+
+  static const _rewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
+  static const _inquiryUrl = 'https://forms.gle/7UxDMHUEPPhiMpBH9';
+
   String _resolveImageUrl(String url) {
     final trimmed = url.trim();
     if (trimmed.isEmpty) return trimmed;
@@ -40,7 +51,14 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
   @override
   void dispose() {
     _emailController.dispose();
+    _rewardedAd?.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRewardedAd();
   }
 
   @override
@@ -49,6 +67,109 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     // 初回だけステータス取得
     if (_status == null) {
       _refresh();
+    }
+  }
+
+  Future<void> _loadRewardedAd() async {
+    if (_loadingRewardedAd) return;
+    if (_rewardedAd != null) return;
+
+    setState(() => _loadingRewardedAd = true);
+    try {
+      final completer = Completer<RewardedAd?>();
+      RewardedAd.load(
+        adUnitId: _rewardedAdUnitId,
+        request: const AdRequest(),
+        rewardedAdLoadCallback: RewardedAdLoadCallback(
+          onAdLoaded: (ad) => completer.complete(ad),
+          onAdFailedToLoad: (_) => completer.complete(null),
+        ),
+      );
+
+      final ad = await completer.future;
+      if (!mounted) return;
+      setState(() {
+        _rewardedAd = ad;
+      });
+    } finally {
+      if (mounted) setState(() => _loadingRewardedAd = false);
+    }
+  }
+
+  Future<void> _showRewardedAdAndClaimSoul() async {
+    if (_busy || _claimingRewardedAd) return;
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null) return;
+
+    if (_rewardedAd == null) {
+      await _loadRewardedAd();
+    }
+    final ad = _rewardedAd;
+    if (ad == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('広告の読み込みに失敗しました')),
+      );
+      return;
+    }
+
+    _rewardedAd = null;
+    bool earned = false;
+
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        _loadRewardedAd();
+      },
+      onAdFailedToShowFullScreenContent: (ad, _) {
+        ad.dispose();
+        _loadRewardedAd();
+      },
+    );
+
+    ad.show(
+      onUserEarnedReward: (ad, _) async {
+        if (earned) return;
+        earned = true;
+        if (!mounted) return;
+        setState(() => _claimingRewardedAd = true);
+        try {
+          final meApi = ref.read(meApiProvider);
+          final updated = await meApi.claimRewardedAd(token: session.token);
+          if (!mounted) return;
+
+          setState(() => _me = updated);
+          ref.read(authControllerProvider.notifier).updateUser(
+                session.user.copyWith(
+                  name: updated.name,
+                  email: updated.email,
+                  coins: updated.coins,
+                  soulCount: updated.soulCount,
+                ),
+              );
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('魂を1回復しました')),
+          );
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('報酬の受け取りに失敗しました: $e')),
+          );
+        } finally {
+          if (mounted) setState(() => _claimingRewardedAd = false);
+        }
+      },
+    );
+  }
+
+  Future<void> _openInquiryForm() async {
+    final uri = Uri.parse(_inquiryUrl);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('URLを開けませんでした')),
+      );
     }
   }
 
@@ -186,6 +307,60 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     }
   }
 
+  Future<void> _setTitle1(String? titleId) async {
+    if (_busy) return;
+
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null) return;
+
+    setState(() => _busy = true);
+    try {
+      final meApi = ref.read(meApiProvider);
+      if (titleId == null) {
+        await meApi.updateMe(token: session.token, clearTitle1: true);
+      } else {
+        await meApi.updateMe(token: session.token, title1Id: titleId);
+      }
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('称号を変更しました')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('称号変更に失敗しました: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _setMessage(String messageId) async {
+    if (_busy) return;
+
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null) return;
+
+    setState(() => _busy = true);
+    try {
+      final meApi = ref.read(meApiProvider);
+      await meApi.updateMe(token: session.token, messageId: messageId);
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('メッセージを変更しました')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('メッセージ変更に失敗しました: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final sessionAsync = ref.watch(authControllerProvider);
@@ -194,6 +369,17 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('アカウント設定'),
+        leading: IconButton(
+          tooltip: '戻る',
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              context.pop();
+              return;
+            }
+            context.go('/');
+          },
+          icon: const Icon(Icons.arrow_back),
+        ),
         actions: [
           if (session != null)
             TextButton(
@@ -244,12 +430,36 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                 _ProfileSummaryCard(me: me, inventory: inventory),
                 const SizedBox(height: 12),
                 Card(
+                  child: ListTile(
+                    title: const Text('広告を見て魂を回復'),
+                    subtitle: const Text('リワード広告視聴で魂+1'),
+                    trailing: _loadingRewardedAd || _claimingRewardedAd
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.play_arrow),
+                    onTap: (_busy || _claimingRewardedAd)
+                        ? null
+                        : _showRewardedAdAndClaimSoul,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('アイコン変更'),
+                        const SizedBox(height: 12),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('アイコン一覧'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => context.push('/icons'),
+                        ),
                         const SizedBox(height: 12),
                         if (me == null || inventory == null) ...[
                           const Text('読み込み中…'),
@@ -280,6 +490,95 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                                       ),
                                     ),
                                   ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _busy ? '更新中…' : 'タップで装備できます',
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('称号変更'),
+                        const SizedBox(height: 12),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('称号一覧'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => context.push('/titles'),
+                        ),
+                        const SizedBox(height: 12),
+                        if (me == null || inventory == null) ...[
+                          const Text('読み込み中…'),
+                        ] else ...[
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              ChoiceChip(
+                                label: const Text('未装備'),
+                                selected: me.title1Id == null,
+                                onSelected: _busy
+                                    ? null
+                                    : (_) => _setTitle1(null),
+                              ),
+                              for (final t in inventory.titles)
+                                ChoiceChip(
+                                  label: Text(t.name),
+                                  selected: t.id == me.title1Id,
+                                  onSelected: _busy
+                                      ? null
+                                      : (_) => _setTitle1(t.id),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _busy ? '更新中…' : 'タップで装備できます',
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('メッセージ変更'),
+                        const SizedBox(height: 12),
+                        if (me == null || inventory == null) ...[
+                          const Text('読み込み中…'),
+                        ] else ...[
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final m in inventory.messages)
+                                ChoiceChip(
+                                  label: Text(
+                                    m.content,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  selected: m.id == me.messageId,
+                                  onSelected: _busy
+                                      ? null
+                                      : (_) => _setMessage(m.id),
                                 ),
                             ],
                           ),
@@ -327,6 +626,14 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                       ? null
                       : _unlinkEmail,
                   child: const Text('解除'),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: ListTile(
+                    title: const Text('お問い合わせ'),
+                    trailing: const Icon(Icons.open_in_new),
+                    onTap: _openInquiryForm,
+                  ),
                 ),
               ],
             ),
@@ -416,6 +723,10 @@ class _ProfileSummaryCard extends StatelessWidget {
     }
 
     final stats = me0.stats;
+    final lastDelta = me0.lastRatingDelta;
+    final deltaText = lastDelta == null
+        ? '未対戦'
+        : (lastDelta > 0 ? '+$lastDelta' : '$lastDelta');
 
     return Card(
       child: Padding(
@@ -452,6 +763,11 @@ class _ProfileSummaryCard extends StatelessWidget {
                         style: const TextStyle(color: Colors.grey),
                       ),
                       const SizedBox(height: 4),
+                      Text(
+                        'レート: ${me0.rating}（前回: $deltaText）',
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                      const SizedBox(height: 4),
                       Text('コイン: ${me0.coins} / 魂: ${me0.soulCount}'),
                     ],
                   ),
@@ -473,47 +789,61 @@ class _ProfileSummaryCard extends StatelessWidget {
               ),
             const SizedBox(height: 12),
             const Text('戦歴'),
-            const SizedBox(height: 6),
+            const SizedBox(height: 12),
             if (stats == null)
               const Text('未取得')
             else
               Column(
                 children: [
-                  _StatRow(label: '勝ち', value: stats.totalWins.toString()),
-                  _StatRow(label: '負け', value: stats.totalLosses.toString()),
-                  _StatRow(label: '引き分け', value: stats.totalDraws.toString()),
-                  _StatRow(label: '現在連勝', value: stats.currentStreak.toString()),
-                  _StatRow(label: '最大連勝', value: stats.maxStreak.toString()),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _StatItem(label: '勝ち', value: stats.totalWins.toString()),
+                      _StatItem(label: '負け', value: stats.totalLosses.toString()),
+                      _StatItem(label: '引き分け', value: stats.totalDraws.toString()),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _StatItem(label: '現在連勝', value: stats.currentStreak.toString()),
+                      _StatItem(label: '最大連勝', value: stats.maxStreak.toString()),
+                    ],
+                  ),
                 ],
               ),
-          ],
-        ),
-      ),
-    );
+          ], // 外側のColumnの閉じ括弧
+        ), // 外側のColumnの閉じ括弧
+      ), // Paddingの閉じ括弧
+    ); // Cardの閉じ括弧
   }
 }
 
-class _StatRow extends StatelessWidget {
-  const _StatRow({required this.label, required this.value});
-
+// 1項目を縦に並べる（ラベルが上で数値が下）ためのパーツ
+class _StatItem extends StatelessWidget {
+  const _StatItem({required this.label, required this.value});
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.grey),
-            ),
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Colors.grey, fontSize: 12),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18, 
+            fontWeight: FontWeight.bold,
+            color: Colors.white, // 背景に合わせて色を指定
           ),
-          Text(value),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

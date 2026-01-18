@@ -268,18 +268,6 @@ class _GamePageState extends State<GamePage>
         return;
       }
 
-      // 延長戦開始
-      if (response.overtimeStarted == true) {
-        setState(() {
-          _phase = GamePhase.overtimeAnnounce;
-          _demonMessage = '延長戦だ！';
-        });
-        await Future.delayed(const Duration(seconds: 2));
-        setState(() {
-          _phase = GamePhase.playing;
-        });
-      }
-
       // AI思考中
       setState(() {
         _isAiThinking = true;
@@ -398,6 +386,17 @@ class _GamePageState extends State<GamePage>
                       color: const Color(0xFFD4AF37),
                     ),
                   ),
+                  if (_phase == GamePhase.title)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: IconButton(
+                        tooltip: 'ヘルプ',
+                        onPressed: _showHelpModal,
+                        icon: const Icon(Icons.help_outline),
+                        color: const Color(0xFFD4AF37),
+                      ),
+                    ),
                   // ゲームオーバーモーダル
                   if (_showGameOverModal) _buildGameOverModal(),
                 ],
@@ -480,14 +479,18 @@ class _GamePageState extends State<GamePage>
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '• 初めて使った文字を「確保」する\n'
-                              '• 相手の確保文字は使用不可\n'
-                              '• 確保文字が少ない方が勝利\n'
-                              '• お手つき2回で即敗北\n'
-                              '• 制限時間 2分（1ターンごと）\n'
-                              '• 10ラウンドで決着\n'
-                              '• 小さい文字は大きい文字と同一とみなす\n'
-                              '• 互いに悪魔辞書にある単語のみ使用可能\n',
+                              '''
+〜主な契約事〜
+• 初めて使った文字を「確保」する
+• 相手の確保文字は使用不可
+• 確保文字が少ない方が勝利
+
+〜その他の契約事〜
+• お手つき2回で即敗北
+• 1ターン40秒で10ターン制
+• 小さい文字は大きい文字と同一となる
+• 悪魔辞書にある一般的単語のみ使用可
+                              ''',
                               style: TextStyle(
                                 color: Colors.grey[300],
                                 fontSize: 14,
@@ -499,7 +502,7 @@ class _GamePageState extends State<GamePage>
                       ),
                       const SizedBox(height: 32),
                       Text(
-                        '難易度を選択',
+                        'AIの難易度を選択',
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.grey[400],
@@ -555,7 +558,7 @@ class _GamePageState extends State<GamePage>
                           ),
                         ),
                         child: const Text(
-                          'ゲーム開始',
+                          '対AI戦',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -577,7 +580,7 @@ class _GamePageState extends State<GamePage>
                           ),
                         ),
                         child: const Text(
-                          'レート対戦',
+                          '対人戦',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -599,7 +602,7 @@ class _GamePageState extends State<GamePage>
                           ),
                         ),
                         child: const Text(
-                          '召喚（ガチャ）',
+                          'ガチャ',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -614,6 +617,40 @@ class _GamePageState extends State<GamePage>
           },
         ),
       ),
+    );
+  }
+
+  void _showHelpModal() {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('ヘルプ'),
+          content: SingleChildScrollView(
+            child: Text(
+              '''
+【辞書に無い単語は？】
+専門用語、人名、商品名、動詞、略語、俗語、複合語、公共良俗に反する言葉、マニアックな地名等。
+見つけたら、あなただけのラッキーなので、是非使ってみてください。
+
+【魂とは？】
+・対人戦（PvP）を1回行うごとに魂を1消費します。
+・リワード広告の視聴で魂を1回復できます。
+
+【コインとは？】
+・召喚（ガチャ）で使用します。対人戦の勝利で+4コイン、敗北で+1コイン獲得できます。
+''',
+              style: const TextStyle(height: 1.4),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('閉じる'),
+            ),
+          ],
+        );
+      },
     );
   }
 

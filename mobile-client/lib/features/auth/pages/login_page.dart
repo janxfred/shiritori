@@ -42,7 +42,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
 
     if (state.value != null) {
-      context.pop();
+      context.go('/account');
     }
   }
 

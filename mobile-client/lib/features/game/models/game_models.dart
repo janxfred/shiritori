@@ -79,7 +79,6 @@ class GameSession {
   final int aiLevel;
   final DateTime turnStartedAt;
   final int remainingTimeMs;
-  final bool isOvertime;
 
   GameSession({
     required this.id,
@@ -98,7 +97,6 @@ class GameSession {
     required this.aiLevel,
     required this.turnStartedAt,
     required this.remainingTimeMs,
-    required this.isOvertime,
   });
 
   factory GameSession.fromJson(Map<String, dynamic> json) {
@@ -121,7 +119,6 @@ class GameSession {
       aiLevel: json['aiLevel'] as int,
       turnStartedAt: DateTime.parse(json['turnStartedAt'] as String),
       remainingTimeMs: json['remainingTimeMs'] as int,
-      isOvertime: json['isOvertime'] as bool,
     );
   }
 }
@@ -192,7 +189,6 @@ class SubmitWordResponse {
   final TurnResult? aiResult;
   final bool gameOver;
   final String? winner;
-  final bool? overtimeStarted;
 
   SubmitWordResponse({
     required this.session,
@@ -200,7 +196,6 @@ class SubmitWordResponse {
     this.aiResult,
     required this.gameOver,
     this.winner,
-    this.overtimeStarted,
   });
 
   factory SubmitWordResponse.fromJson(Map<String, dynamic> json) {
@@ -212,7 +207,6 @@ class SubmitWordResponse {
           : null,
       gameOver: json['gameOver'] as bool,
       winner: json['winner'] as String?,
-      overtimeStarted: json['overtimeStarted'] as bool?,
     );
   }
 }

@@ -64,7 +64,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     }
 
     if (state.value != null) {
-      context.pop();
+      context.go('/account');
     }
   }
 
@@ -85,7 +85,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
               autocorrect: false,
               enableSuggestions: true,
               decoration: const InputDecoration(
-                labelText: 'プレイヤー名',
+                labelText: 'プレイヤー名（一度決めたら、変更できません）',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -94,7 +94,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
               controller: _passwordController,
               obscureText: true,
               decoration: const InputDecoration(
-                labelText: '合言葉（パスワード）',
+                labelText: '合言葉（6文字以上のパスワードにしてください）',
                 border: OutlineInputBorder(),
               ),
             ),

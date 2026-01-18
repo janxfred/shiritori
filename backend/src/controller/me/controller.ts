@@ -452,7 +452,8 @@ export default async function (fastify: ServerInstance) {
       if (!token) return reply.status(401).send({ message: "認証が必要です" });
 
       const payload = verifyAuthToken({ token });
-      if (!payload) return reply.status(401).send({ message: "認証が必要です" });
+      if (!payload)
+        return reply.status(401).send({ message: "認証が必要です" });
 
       const prisma = getPrisma();
 
@@ -462,7 +463,11 @@ export default async function (fastify: ServerInstance) {
           prisma.iconMaster.upsert({
             where: { id: icon.id },
             update: { imageUrl: icon.imageUrl, rarity: icon.rarity },
-            create: { id: icon.id, imageUrl: icon.imageUrl, rarity: icon.rarity },
+            create: {
+              id: icon.id,
+              imageUrl: icon.imageUrl,
+              rarity: icon.rarity,
+            },
           })
         )
       );
@@ -515,7 +520,8 @@ export default async function (fastify: ServerInstance) {
       if (!token) return reply.status(401).send({ message: "認証が必要です" });
 
       const payload = verifyAuthToken({ token });
-      if (!payload) return reply.status(401).send({ message: "認証が必要です" });
+      if (!payload)
+        return reply.status(401).send({ message: "認証が必要です" });
 
       const prisma = getPrisma();
 

@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/api/api_client.dart';
+import '../../account/api/me_api.dart';
 import '../api/pvp_api.dart';
 import '../models/pvp_models.dart';
 
@@ -30,9 +32,18 @@ class PvpGamePage extends ConsumerStatefulWidget {
 
 class _PvpGamePageState extends ConsumerState<PvpGamePage> {
   Timer? _timer;
+  Timer? _battleIntroTimer;
   bool _busy = false;
   bool _polling = false;
   bool _showGameOverModal = false;
+  bool _syncedMeAfterGameOver = false;
+
+  bool _showBattleIntro = false;
+  bool _battleIntroShownOnce = false;
+
+  // バナー広告
+  BannerAd? _bannerAd;
+  bool _isBannerAdLoaded = false;
 
   final ValueNotifier<int> _remainingTimeMs = ValueNotifier<int>(0);
 
@@ -59,9 +70,47 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startBattleIntroIfNeeded();
       _refresh();
       _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     });
+
+    _loadBannerAd();
+  }
+
+  void _startBattleIntroIfNeeded() {
+    if (_battleIntroShownOnce) return;
+    if (_opponent == null) return;
+
+    _battleIntroShownOnce = true;
+    setState(() => _showBattleIntro = true);
+
+    _battleIntroTimer?.cancel();
+    _battleIntroTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() => _showBattleIntro = false);
+    });
+  }
+
+  /// バナー広告をロード
+  void _loadBannerAd() {
+    _bannerAd = BannerAd(
+      adUnitId: 'ca-app-pub-3940256099942544/6300978111',
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (ad) {
+          setState(() {
+            _isBannerAdLoaded = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          debugPrint('バナー広告のロードに失敗: $error');
+          ad.dispose();
+        },
+      ),
+    );
+    _bannerAd!.load();
   }
 
   void _updateSession(PvpSession session, {required String myUserId}) {
@@ -83,6 +132,28 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
         _showGameOverModal = true;
       }
     });
+
+    if (session.status != 'playing') {
+      _syncMeAfterGameOver();
+    }
+  }
+
+  Future<void> _syncMeAfterGameOver() async {
+    if (_syncedMeAfterGameOver) return;
+
+    final auth = ref.read(authControllerProvider).valueOrNull;
+    if (auth == null) return;
+
+    _syncedMeAfterGameOver = true;
+    try {
+      final me = await MeApi().getMe(token: auth.token);
+      if (!mounted) return;
+      ref
+          .read(authControllerProvider.notifier)
+          .updateUser(auth.user.copyWith(coins: me.coins, soulCount: me.soulCount));
+    } catch (_) {
+      _syncedMeAfterGameOver = false;
+    }
   }
 
   bool _shouldRebuildForSessionChange({
@@ -134,8 +205,10 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _battleIntroTimer?.cancel();
     _wordController.dispose();
     _remainingTimeMs.dispose();
+    _bannerAd?.dispose();
     super.dispose();
   }
 
@@ -288,7 +361,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('レート対戦にはログインが必要です'),
+                      const Text('対人戦にはログインが必要です'),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: () => context.push('/login'),
@@ -339,10 +412,20 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
             final opponentIconUrl =
               (opponent == null) ? null : _resolveImageUrl(opponent.iconImageUrl);
 
-            return Stack(
+            return Column(
               children: [
-                Column(
-                  children: [
+                // バナー広告（常に上部に表示）
+                if (_isBannerAdLoaded && _bannerAd != null)
+                  SizedBox(
+                    width: _bannerAd!.size.width.toDouble(),
+                    height: _bannerAd!.size.height.toDouble(),
+                    child: AdWidget(ad: _bannerAd!),
+                  ),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Column(
+                        children: [
                     // 上部: 相手アイコン + 称号(メッセージ扱い) + 残り時間
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -535,52 +618,123 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                       isMyTurn: isMyTurn,
                       isGameOver: isGameOver,
                     ),
-                  ],
-                ),
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: IconButton(
-                    tooltip: '戻る',
-                    onPressed: () => context.pop(),
-                    icon: const Icon(Icons.arrow_back),
-                    color: const Color(0xFFD4AF37),
-                  ),
-                ),
-                if (_rated != null)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                        ],
                       ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2D2D2D).withValues(alpha: 230),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFD4AF37)),
-                      ),
-                      child: Text(
-                        'レート ${_rated!.userRating}（${_rated!.userDelta >= 0 ? '+' : ''}${_rated!.userDelta}）',
-                        style: const TextStyle(
-                          color: Color(0xFFD4AF37),
-                          fontWeight: FontWeight.bold,
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: IconButton(
+                          tooltip: '戻る',
+                          onPressed: () => context.pop(),
+                          icon: const Icon(Icons.arrow_back),
+                          color: const Color(0xFFD4AF37),
                         ),
                       ),
-                    ),
+                      if (_rated != null)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2D2D2D)
+                                  .withValues(alpha: 230),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFD4AF37),
+                              ),
+                            ),
+                            child: Text(
+                              'レート ${_rated!.userRating}（${_rated!.userDelta >= 0 ? '+' : ''}${_rated!.userDelta}）',
+                              style: const TextStyle(
+                                color: Color(0xFFD4AF37),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_showBattleIntro && opponent != null)
+                        Positioned.fill(
+                          child: Container(
+                            color: Colors.black54,
+                            alignment: Alignment.center,
+                            child: Container(
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 24),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2D2D2D),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey[700]!),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(48),
+                                    child: (opponentIconUrl == null)
+                                        ? Container(
+                                            width: 96,
+                                            height: 96,
+                                            color: Colors.grey[800],
+                                          )
+                                        : Image.network(
+                                            opponentIconUrl,
+                                            width: 96,
+                                            height: 96,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                              return Container(
+                                                width: 96,
+                                                height: 96,
+                                                color: Colors.grey[800],
+                                              );
+                                            },
+                                          ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    opponent.titleName ?? '称号: なし',
+                                    style: TextStyle(
+                                      color: Colors.grey[200],
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    opponent.messageContent,
+                                    style: TextStyle(
+                                      color: Colors.grey[300],
+                                      fontSize: 14,
+                                      height: 1.4,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_showGameOverModal && isGameOver)
+                        Positioned.fill(
+                          child: Container(
+                            color: Colors.black.withValues(alpha: 180),
+                            alignment: Alignment.center,
+                            child: _buildGameOverModal(
+                              session: session,
+                              myUserId: auth.user.id,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                if (_showGameOverModal && isGameOver)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 180),
-                      alignment: Alignment.center,
-                      child: _buildGameOverModal(
-                        session: session,
-                        myUserId: auth.user.id,
-                      ),
-                    ),
-                  ),
+                ),
               ],
             );
           },

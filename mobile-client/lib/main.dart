@@ -8,7 +8,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'features/game/pages/game_page.dart';
 import 'features/users/pages/user_list_page.dart';
-import 'features/users/pages/user_detail_page.dart';
 import 'features/account/pages/account_settings_page.dart';
 import 'features/auth/pages/login_page.dart';
 import 'features/auth/pages/signup_page.dart';
@@ -16,6 +15,8 @@ import 'features/ranked/pages/ranked_match_page.dart';
 import 'features/pvp/pages/pvp_game_page.dart';
 import 'features/pvp/models/pvp_models.dart';
 import 'features/gacha/pages/gacha_page.dart';
+import 'features/account/pages/icon_catalog_page.dart';
+import 'features/account/pages/title_catalog_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,6 +69,14 @@ final _router = GoRouter(
       builder: (context, state) => const AccountSettingsPage(),
     ),
     GoRoute(
+      path: '/icons',
+      builder: (context, state) => const IconCatalogPage(),
+    ),
+    GoRoute(
+      path: '/titles',
+      builder: (context, state) => const TitleCatalogPage(),
+    ),
+    GoRoute(
       path: '/login',
       builder: (context, state) => const LoginPage(),
     ),
@@ -78,13 +87,6 @@ final _router = GoRouter(
     GoRoute(
       path: '/users',
       builder: (context, state) => const UserListPage(),
-    ),
-    GoRoute(
-      path: '/users/:userId',
-      builder: (context, state) {
-        final userId = state.pathParameters['userId']!;
-        return UserDetailPage(userId: userId);
-      },
     ),
   ],
 );

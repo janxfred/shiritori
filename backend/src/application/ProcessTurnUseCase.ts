@@ -318,7 +318,10 @@ function processPlayerResult(
   session.usedWords.add(word);
   const capturedChars = extractCharsToCapture(word);
   for (const char of capturedChars) {
-    if (!session.aiCapturedChars.has(char) && !session.playerCapturedChars.has(char)) {
+    if (
+      !session.aiCapturedChars.has(char) &&
+      !session.playerCapturedChars.has(char)
+    ) {
       session.playerCapturedChars.add(char);
     }
   }
@@ -379,7 +382,10 @@ function processAiTurn(
 
   const capturedChars = extractCharsToCapture(word);
   for (const char of capturedChars) {
-    if (!session.playerCapturedChars.has(char) && !session.aiCapturedChars.has(char)) {
+    if (
+      !session.playerCapturedChars.has(char) &&
+      !session.aiCapturedChars.has(char)
+    ) {
       session.aiCapturedChars.add(char);
     }
   }

@@ -23,6 +23,11 @@ class _GachaPageState extends ConsumerState<GachaPage> {
   GachaStatusResponse? _status;
   GachaDrawResponse? _last;
 
+  @override
+  void initState() {
+    super.initState();
+  }
+
   String _resolveImageUrl(String url) {
     final trimmed = url.trim();
     if (trimmed.isEmpty) return trimmed;
@@ -82,19 +87,25 @@ class _GachaPageState extends ConsumerState<GachaPage> {
     if (session == null) return;
 
     setState(() => _busy = true);
+    var shouldRefreshAfterDraw = false;
     try {
       final api = ref.read(gachaApiProvider);
       final draw = await api.draw(token: session.token);
       if (!mounted) return;
       setState(() {
         _last = draw;
-        _status = _status == null
-            ? GachaStatusResponse(cost: 0, coins: draw.coins)
-            : GachaStatusResponse(cost: _status!.cost, coins: draw.coins);
+        if (_status != null) {
+          _status = GachaStatusResponse(
+            cost: _status!.cost,
+            coins: draw.coins,
+            rates: _status!.rates,
+          );
+        }
       });
       ref.read(authControllerProvider.notifier).updateUser(
             session.user.copyWith(coins: draw.coins),
           );
+      shouldRefreshAfterDraw = true;
     } on DioException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,6 +119,10 @@ class _GachaPageState extends ConsumerState<GachaPage> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+
+    if (shouldRefreshAfterDraw) {
+      await _refresh();
+    }
   }
 
   @override
@@ -120,12 +135,20 @@ class _GachaPageState extends ConsumerState<GachaPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 1. ref.listen を正しい build メソッド内に配置
+    ref.listen(authControllerProvider, (_, next) {
+      final session = next.valueOrNull;
+      if (session != null && _status == null && !_busy) {
+        _refresh();
+      }
+    });
+
     final sessionAsync = ref.watch(authControllerProvider);
     final session = sessionAsync.valueOrNull;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('召喚（ガチャ）'),
+        title: const Text('ガチャ'),
       ),
       body: sessionAsync.when(
         data: (_) {
@@ -136,7 +159,7 @@ class _GachaPageState extends ConsumerState<GachaPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('召喚にはログインが必要です'),
+                    const Text('ガチャにはログインが必要です'),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () => context.push('/login'),
@@ -151,6 +174,7 @@ class _GachaPageState extends ConsumerState<GachaPage> {
           final status = _status;
           final coins = status?.coins ?? session.user.coins;
           final cost = status?.cost;
+          final rates = status?.rates ?? const <GachaRateEntry>[];
 
           return RefreshIndicator(
             onRefresh: _refresh,
@@ -179,6 +203,53 @@ class _GachaPageState extends ConsumerState<GachaPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '排出率一覧',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        if (_status == null)
+                          const Text('（読み込み中…）')
+                        else if (rates.isEmpty)
+                          const Text('（排出率一覧を取得できませんでした）')
+                        else
+                          ...rates.map((e) {
+                            final percent = (e.probability * 100).clamp(0, 100);
+                            final label = switch (e) {
+                              final GachaIconRateEntry r => 'アイコン（★${r.rarity}）',
+                              final GachaMessageRateEntry r => 'メッセージ（★${r.rarity}） ${r.content}',
+                              final GachaTitleRateEntry r => '称号 ${r.name}',
+                              final GachaItemRateEntry r => 'アイテム（★${r.rarity}） ${r.name}',
+                            };
+
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      label,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text('${percent.toStringAsFixed(2)}%'),
+                                ],
+                              ),
+                            );
+                          }),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 if (_last != null) ...[
                   Card(
                     child: Padding(
@@ -190,7 +261,10 @@ class _GachaPageState extends ConsumerState<GachaPage> {
                     ),
                   ),
                 ] else ...[
-                  const Text('ここに召喚結果が表示されます'),
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('ここに召喚結果が表示されます'),
+                  ),
                 ],
               ],
             ),
