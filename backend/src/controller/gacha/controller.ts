@@ -1,7 +1,10 @@
 import { getPrisma, isDatabaseConfigured } from "../../database";
+import { checkGachaCountTitles } from "../../domain/services/TitleAchievementService";
 import { verifyAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
 import { ICON_CATALOG } from "../../lib/icon_catalog";
+import { MESSAGE_CATALOG } from "../../lib/message_catalog";
+import { TITLE_CATALOG } from "../../lib/title_catalog";
 import {
   errorResponseSchema,
   gachaDrawResponseSchema,
@@ -61,9 +64,9 @@ export default async function (fastify: ServerInstance) {
       });
       if (!user) return reply.status(401).send({ message: "認証が必要です" });
 
-      // マスタ自己修復（少なくともアイコンは必ず候補に入るようにする）
-      await Promise.all(
-        ICON_CATALOG.map((icon) =>
+      // マスタ自己修復（カタログからマスタデータを同期）
+      await Promise.all([
+        ...ICON_CATALOG.map((icon) =>
           prisma.iconMaster.upsert({
             where: { id: icon.id },
             update: { imageUrl: icon.imageUrl, rarity: icon.rarity },
@@ -73,8 +76,35 @@ export default async function (fastify: ServerInstance) {
               rarity: icon.rarity,
             },
           })
-        )
-      );
+        ),
+        ...MESSAGE_CATALOG.map((msg) =>
+          prisma.messageMaster.upsert({
+            where: { id: msg.id },
+            update: { content: msg.content, condition: msg.condition, rarity: msg.rarity },
+            create: {
+              id: msg.id,
+              content: msg.content,
+              condition: msg.condition,
+              rarity: msg.rarity,
+            },
+          })
+        ),
+        ...TITLE_CATALOG.map((title) =>
+          prisma.title.upsert({
+            where: { id: title.id },
+            update: { name: title.name, description: title.description, condition: title.condition },
+            create: {
+              id: title.id,
+              name: title.name,
+              description: title.description,
+              condition: title.condition,
+            },
+          })
+        ),
+      ]);
+
+      // ガチャ対象の称号IDのみ取得
+      const gachaTitleIds = TITLE_CATALOG.filter((t) => t.fromGacha).map((t) => t.id);
 
       // 重複排出あり：所持状況に関わらず全マスタが対象、等確率
       const [icons, messages, titles, items] = await Promise.all([
@@ -85,6 +115,7 @@ export default async function (fastify: ServerInstance) {
           select: { id: true, content: true, rarity: true },
         }),
         prisma.title.findMany({
+          where: { id: { in: gachaTitleIds } },
           select: { id: true, name: true },
         }),
         prisma.itemMaster.findMany({
@@ -180,9 +211,9 @@ export default async function (fastify: ServerInstance) {
           return { kind: "error" as const, message: "コインが足りません" };
         }
 
-        // マスタ自己修復（少なくともアイコンは必ず候補に入るようにする）
-        await Promise.all(
-          ICON_CATALOG.map((icon) =>
+        // マスタ自己修復（カタログからマスタデータを同期）
+        await Promise.all([
+          ...ICON_CATALOG.map((icon) =>
             tx.iconMaster.upsert({
               where: { id: icon.id },
               update: { imageUrl: icon.imageUrl, rarity: icon.rarity },
@@ -192,13 +223,40 @@ export default async function (fastify: ServerInstance) {
                 rarity: icon.rarity,
               },
             })
-          )
-        );
+          ),
+          ...MESSAGE_CATALOG.map((msg) =>
+            tx.messageMaster.upsert({
+              where: { id: msg.id },
+              update: { content: msg.content, condition: msg.condition, rarity: msg.rarity },
+              create: {
+                id: msg.id,
+                content: msg.content,
+                condition: msg.condition,
+                rarity: msg.rarity,
+              },
+            })
+          ),
+          ...TITLE_CATALOG.map((title) =>
+            tx.title.upsert({
+              where: { id: title.id },
+              update: { name: title.name, description: title.description, condition: title.condition },
+              create: {
+                id: title.id,
+                name: title.name,
+                description: title.description,
+                condition: title.condition,
+              },
+            })
+          ),
+        ]);
+
+        // ガチャ対象の称号IDのみ
+        const gachaTitleIds = TITLE_CATALOG.filter((t) => t.fromGacha).map((t) => t.id);
 
         const [icons, messages, titles, items] = await Promise.all([
           tx.iconMaster.findMany(),
           tx.messageMaster.findMany(),
-          tx.title.findMany(),
+          tx.title.findMany({ where: { id: { in: gachaTitleIds } } }),
           tx.itemMaster.findMany(),
         ]);
 
@@ -230,6 +288,16 @@ export default async function (fastify: ServerInstance) {
           data: { coins: { decrement: GACHA_COST } },
           select: { coins: true },
         });
+
+        // ガチャカウントを更新
+        const stats = await tx.userStats.upsert({
+          where: { userId: me.id },
+          update: { gachaCount: { increment: 1 } },
+          create: { userId: me.id, gachaCount: 1 },
+        });
+
+        // ガチャ回数称号チェック
+        await checkGachaCountTitles(tx, me.id, stats.gachaCount);
 
         if (chosen.type === "icon") {
           const icon = await tx.iconMaster.findUnique({

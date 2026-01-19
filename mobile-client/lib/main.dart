@@ -18,6 +18,7 @@ import 'features/gacha/pages/gacha_page.dart';
 import 'features/account/pages/icon_catalog_page.dart';
 import 'features/account/pages/title_catalog_page.dart';
 import 'features/account/pages/message_catalog_page.dart';
+import 'features/present/pages/present_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,6 +81,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/messages',
       builder: (context, state) => const MessageCatalogPage(),
+    ),
+    GoRoute(
+      path: '/present',
+      builder: (context, state) => const PresentPage(),
     ),
     GoRoute(
       path: '/login',

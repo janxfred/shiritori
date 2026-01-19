@@ -1,4 +1,12 @@
 import { getPrisma, isDatabaseConfigured } from "../../database";
+import {
+  checkCoinsTitles,
+  checkLoseStreakTitles,
+  checkLooseTranscenderTitle,
+  checkRatingTitles,
+  checkTotalWinsTitles,
+  checkWinStreakTitles,
+} from "../../domain/services/TitleAchievementService";
 import { verifyAuthToken } from "../../lib/auth";
 import { type ServerInstance } from "../../lib/fastify";
 import {
@@ -206,12 +214,16 @@ async function commitRatedResultIfNeeded(params: {
       result === "win" ? (user.stats?.currentStreak ?? 0) + 1 : 0;
     const maxStreak = Math.max(user.stats?.maxStreak ?? 0, currentStreak);
 
+    const currentLoseStreak =
+      result === "loss" ? (user.stats?.currentLoseStreak ?? 0) + 1 : 0;
+
     return {
       totalWins,
       totalLosses,
       totalDraws,
       currentStreak,
       maxStreak,
+      currentLoseStreak,
     };
   };
 
@@ -255,6 +267,30 @@ async function commitRatedResultIfNeeded(params: {
         { userId: p2.id, opponentId: p1.id, result: p2Result },
       ],
     });
+
+    // 称号チェック（プレイヤー1）
+    await checkRatingTitles(tx, p1.id, updatedP1.rating);
+    await checkCoinsTitles(tx, p1.id, updatedP1.coins);
+    await checkWinStreakTitles(tx, p1.id, p1Next.currentStreak);
+    await checkLoseStreakTitles(tx, p1.id, p1Next.currentLoseStreak);
+    await checkTotalWinsTitles(tx, p1.id, p1Next.totalWins);
+
+    // 称号チェック（プレイヤー2）
+    await checkRatingTitles(tx, p2.id, updatedP2.rating);
+    await checkCoinsTitles(tx, p2.id, updatedP2.coins);
+    await checkWinStreakTitles(tx, p2.id, p2Next.currentStreak);
+    await checkLoseStreakTitles(tx, p2.id, p2Next.currentLoseStreak);
+    await checkTotalWinsTitles(tx, p2.id, p2Next.totalWins);
+
+    // るーず超越チェック（「ず」「る」「ー」全て取られて勝利）
+    if (p1Result === "win") {
+      const opponentCapturedChars = Array.from(session.player2CapturedChars);
+      await checkLooseTranscenderTitle(tx, p1.id, true, opponentCapturedChars);
+    }
+    if (p2Result === "win") {
+      const opponentCapturedChars = Array.from(session.player1CapturedChars);
+      await checkLooseTranscenderTitle(tx, p2.id, true, opponentCapturedChars);
+    }
 
     return { updatedP1, updatedP2 };
   });

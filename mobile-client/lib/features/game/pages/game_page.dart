@@ -1,10 +1,13 @@
 // 悪魔的しりとり ゲーム画面
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:go_router/go_router.dart';
 import '../api/game_api.dart';
 import '../models/game_models.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../present/api/present_api.dart';
 
 /// 制限時間（ミリ秒）: 40秒
 const int timeLimitMs = 40 * 1000;
@@ -12,14 +15,16 @@ const int timeLimitMs = 40 * 1000;
 /// AIの応答遅延（ミリ秒）
 const int aiResponseDelayMs = 2000;
 
-class GamePage extends StatefulWidget {
+final presentApiProvider = Provider<PresentApi>((ref) => PresentApi());
+
+class GamePage extends ConsumerStatefulWidget {
   const GamePage({super.key});
 
   @override
-  State<GamePage> createState() => _GamePageState();
+  ConsumerState<GamePage> createState() => _GamePageState();
 }
 
-class _GamePageState extends State<GamePage>
+class _GamePageState extends ConsumerState<GamePage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   final GameApi _api = GameApi();
   final TextEditingController _inputController = TextEditingController();
@@ -53,6 +58,9 @@ class _GamePageState extends State<GamePage>
   BannerAd? _bannerAd;
   bool _isBannerAdLoaded = false;
 
+  // プレゼント未受け取り数
+  int _unclaimedPresentCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +73,25 @@ class _GamePageState extends State<GamePage>
       CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
     );
     _loadBannerAd();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchUnclaimedPresentCount();
+    });
+  }
+
+  Future<void> _fetchUnclaimedPresentCount() async {
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null) return;
+
+    try {
+      final api = ref.read(presentApiProvider);
+      final list = await api.getList(token: session.token);
+      if (!mounted) return;
+      setState(() {
+        _unclaimedPresentCount = list.unclaimedCount;
+      });
+    } catch (_) {
+      // エラー時は無視
+    }
   }
 
   /// バナー広告をロード
@@ -354,6 +381,14 @@ class _GamePageState extends State<GamePage>
 
   @override
   Widget build(BuildContext context) {
+    // 認証状態が変わった時にプレゼント数を更新
+    ref.listen(authControllerProvider, (_, next) {
+      final session = next.valueOrNull;
+      if (session != null && _phase == GamePhase.title) {
+        _fetchUnclaimedPresentCount();
+      }
+    });
+
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
       body: SafeArea(
@@ -386,7 +421,7 @@ class _GamePageState extends State<GamePage>
                       color: const Color(0xFFD4AF37),
                     ),
                   ),
-                  if (_phase == GamePhase.title)
+                  if (_phase == GamePhase.title) ...[
                     Positioned(
                       top: 8,
                       left: 8,
@@ -397,6 +432,49 @@ class _GamePageState extends State<GamePage>
                         color: const Color(0xFFD4AF37),
                       ),
                     ),
+                    Positioned(
+                      top: 8,
+                      left: 48,
+                      child: Stack(
+                        children: [
+                          IconButton(
+                            tooltip: 'プレゼントボックス',
+                            onPressed: () async {
+                              await context.push('/present');
+                              _fetchUnclaimedPresentCount();
+                            },
+                            icon: const Icon(Icons.card_giftcard),
+                            color: const Color(0xFFD4AF37),
+                          ),
+                          if (_unclaimedPresentCount > 0)
+                            Positioned(
+                              right: 4,
+                              top: 4,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 18,
+                                  minHeight: 18,
+                                ),
+                                child: Text(
+                                  _unclaimedPresentCount > 99 ? '99+' : '$_unclaimedPresentCount',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                   // ゲームオーバーモーダル
                   if (_showGameOverModal) _buildGameOverModal(),
                 ],

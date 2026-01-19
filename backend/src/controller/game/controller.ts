@@ -8,8 +8,17 @@ import {
   processAiFirstTurn,
   processTurn,
 } from "../../application/ProcessTurnUseCase";
+import { getPrisma, isDatabaseConfigured } from "../../database";
 import { getRandomMessage } from "../../domain/constants/DemonMessages";
 import type { AiLevel } from "../../domain/services/AiBrainService";
+import {
+  checkAiMatchTitles,
+  checkLoseStreakTitles,
+  checkLooseTranscenderTitle,
+  checkSoulEaterTitle,
+  checkTotalWinsTitles,
+  checkWinStreakTitles,
+} from "../../domain/services/TitleAchievementService";
 import { getDictionarySize } from "../../infrastructure/DictionaryRepository";
 import {
   createSession,
@@ -17,6 +26,7 @@ import {
   sessionToJson,
   updateSession,
 } from "../../infrastructure/GameSessionStore";
+import { verifyAuthToken } from "../../lib/auth";
 import { type ServerInstance } from "../../lib/fastify";
 import {
   checkTimeResponseSchema,
@@ -26,10 +36,22 @@ import {
   gameStateResponseSchema,
   lifecycleRequestSchema,
   lifecycleResponseSchema,
+  recordAiMatchRequestSchema,
+  recordAiMatchResponseSchema,
   sessionIdParamsSchema,
   submitWordRequestSchema,
   submitWordResponseSchema,
 } from "./schema";
+
+function getBearerToken(request: {
+  headers: Record<string, unknown>;
+}): string | null {
+  const auth = request.headers.authorization;
+  if (typeof auth !== "string") return null;
+  const [type, token] = auth.split(" ");
+  if (type?.toLowerCase() !== "bearer" || !token) return null;
+  return token;
+}
 
 export default async function (fastify: ServerInstance) {
   /**
@@ -265,6 +287,158 @@ export default async function (fastify: ServerInstance) {
       return reply.send({
         session: sessionToJson(session),
         gameOver: false,
+      });
+    }
+  );
+
+  /**
+   * AI対戦結果記録（称号チェック用）
+   */
+  fastify.post(
+    "/record-ai-match",
+    {
+      schema: {
+        tags: ["Game"],
+        summary: "AI対戦結果記録",
+        description:
+          "AI対戦の結果を記録し、称号条件をチェックします。",
+        body: recordAiMatchRequestSchema,
+        response: {
+          200: recordAiMatchResponseSchema,
+          401: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!isDatabaseConfigured()) {
+        return reply.status(503).send({
+          message: "DATABASE_URL が未設定のため、このAPIは利用できません",
+        });
+      }
+
+      const token = getBearerToken(request);
+      if (!token) return reply.status(401).send({ message: "認証が必要です" });
+
+      const payload = verifyAuthToken({ token });
+      if (!payload)
+        return reply.status(401).send({ message: "認証が必要です" });
+
+      const { result, aiCapturedChars } = request.body as {
+        result: "win" | "loss" | "draw";
+        aiCapturedChars?: string[];
+      };
+
+      const prisma = getPrisma();
+
+      const newTitles = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.findUnique({
+          where: { id: payload.userId },
+          include: { stats: true },
+        });
+
+        if (!user) throw new Error("UNAUTHORIZED");
+
+        // 統計更新
+        const totalWins =
+          (user.stats?.totalWins ?? 0) + (result === "win" ? 1 : 0);
+        const totalLosses =
+          (user.stats?.totalLosses ?? 0) + (result === "loss" ? 1 : 0);
+        const totalDraws =
+          (user.stats?.totalDraws ?? 0) + (result === "draw" ? 1 : 0);
+
+        const currentStreak =
+          result === "win" ? (user.stats?.currentStreak ?? 0) + 1 : 0;
+        const maxStreak = Math.max(user.stats?.maxStreak ?? 0, currentStreak);
+
+        const currentLoseStreak =
+          result === "loss" ? (user.stats?.currentLoseStreak ?? 0) + 1 : 0;
+
+        const aiMatchCount = (user.stats?.aiMatchCount ?? 0) + 1;
+
+        await tx.userStats.upsert({
+          where: { userId: user.id },
+          update: {
+            totalWins,
+            totalLosses,
+            totalDraws,
+            currentStreak,
+            maxStreak,
+            currentLoseStreak,
+            aiMatchCount,
+          },
+          create: {
+            userId: user.id,
+            totalWins,
+            totalLosses,
+            totalDraws,
+            currentStreak,
+            maxStreak,
+            currentLoseStreak,
+            aiMatchCount,
+          },
+        });
+
+        const titles: Array<{
+          titleId: string;
+          titleName: string;
+          description: string;
+        }> = [];
+
+        // 各種称号チェック
+        const winStreakTitles = await checkWinStreakTitles(
+          tx,
+          user.id,
+          currentStreak
+        );
+        titles.push(...winStreakTitles);
+
+        const loseStreakTitles = await checkLoseStreakTitles(
+          tx,
+          user.id,
+          currentLoseStreak
+        );
+        titles.push(...loseStreakTitles);
+
+        const totalWinsTitles = await checkTotalWinsTitles(
+          tx,
+          user.id,
+          totalWins
+        );
+        titles.push(...totalWinsTitles);
+
+        const aiMatchTitles = await checkAiMatchTitles(
+          tx,
+          user.id,
+          aiMatchCount
+        );
+        titles.push(...aiMatchTitles);
+
+        // 魂が0になった場合のチェック
+        const soulEaterTitles = await checkSoulEaterTitle(
+          tx,
+          user.id,
+          user.soulCount
+        );
+        titles.push(...soulEaterTitles);
+
+        // るーず超越チェック
+        if (result === "win" && aiCapturedChars) {
+          const transcenderTitles = await checkLooseTranscenderTitle(
+            tx,
+            user.id,
+            true,
+            aiCapturedChars
+          );
+          titles.push(...transcenderTitles);
+        }
+
+        return titles;
+      });
+
+      return reply.send({
+        message: "AI対戦結果を記録しました",
+        newTitles,
       });
     }
   );

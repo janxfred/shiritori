@@ -1,8 +1,11 @@
 import bcrypt from "bcryptjs";
 import { getPrisma, isDatabaseConfigured } from "../../database";
+import { checkCoinsTitles, checkLoginStreakTitles } from "../../domain/services/TitleAchievementService";
 import { signAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
 import { ICON_CATALOG } from "../../lib/icon_catalog";
+import { MESSAGE_CATALOG } from "../../lib/message_catalog";
+import { TITLE_CATALOG } from "../../lib/title_catalog";
 import {
   errorResponseSchema,
   loginRequestSchema,
@@ -11,32 +14,44 @@ import {
   signupResponseSchema,
 } from "./schema";
 
+const LOGIN_BONUS_COINS = 3;
+const LOGIN_BONUS_INTERVAL_HOURS = 24;
+
 async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
-  for (const icon of ICON_CATALOG) {
-    await prisma.iconMaster.upsert({
-      where: { id: icon.id },
-      update: {
-        imageUrl: icon.imageUrl,
-        rarity: icon.rarity,
-      },
-      create: {
-        id: icon.id,
-        imageUrl: icon.imageUrl,
-        rarity: icon.rarity,
-      },
-    });
-  }
+  // アイコンマスタ
+  await Promise.all(
+    ICON_CATALOG.map((icon) =>
+      prisma.iconMaster.upsert({
+        where: { id: icon.id },
+        update: { imageUrl: icon.imageUrl, rarity: icon.rarity },
+        create: { id: icon.id, imageUrl: icon.imageUrl, rarity: icon.rarity },
+      })
+    )
+  );
 
-  await prisma.messageMaster.upsert({
-    where: { id: "msg_default_01" },
-    update: {},
-    create: {
-      id: "msg_default_01",
-      content: "契約は既に結ばれた。さあ、言葉を捧げよ。",
-      rarity: 1,
-    },
-  });
+  // メッセージマスタ
+  await Promise.all(
+    MESSAGE_CATALOG.map((msg) =>
+      prisma.messageMaster.upsert({
+        where: { id: msg.id },
+        update: { content: msg.content, condition: msg.condition, rarity: msg.rarity },
+        create: { id: msg.id, content: msg.content, condition: msg.condition, rarity: msg.rarity },
+      })
+    )
+  );
 
+  // 称号マスタ
+  await Promise.all(
+    TITLE_CATALOG.map((title) =>
+      prisma.title.upsert({
+        where: { id: title.id },
+        update: { name: title.name, description: title.description, condition: title.condition },
+        create: { id: title.id, name: title.name, description: title.description, condition: title.condition },
+      })
+    )
+  );
+
+  // デフォルト称号（新米の契約者）
   await prisma.title.upsert({
     where: { id: "title_main_01" },
     update: {},
@@ -218,13 +233,93 @@ export default async function (fastify: ServerInstance) {
         return reply.status(401).send({ message: "合言葉が違います" });
       }
 
-      const updated = await prisma.user.update({
-        where: { id: user.id },
-        data: { lastLoginAt: new Date() },
+      const now = new Date();
+      let loginBonusGranted = false;
+
+      // トランザクションでログイン処理
+      const updated = await prisma.$transaction(async (tx) => {
+        // ログインボーナスチェック
+        const lastBonusAt = user.lastLoginBonusAt;
+        const hoursSinceLastBonus = lastBonusAt
+          ? (now.getTime() - lastBonusAt.getTime()) / (1000 * 60 * 60)
+          : LOGIN_BONUS_INTERVAL_HOURS + 1;
+
+        if (hoursSinceLastBonus >= LOGIN_BONUS_INTERVAL_HOURS) {
+          // ログインボーナスをプレゼントボックスに追加
+          await tx.presentBox.create({
+            data: {
+              userId: user.id,
+              type: "coin",
+              amount: LOGIN_BONUS_COINS,
+              description: "ログインボーナス",
+            },
+          });
+          loginBonusGranted = true;
+        }
+
+        // 連続ログイン日数チェック
+        const stats = await tx.userStats.upsert({
+          where: { userId: user.id },
+          update: {},
+          create: { userId: user.id },
+        });
+
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const lastLoginDate = stats.lastLoginDate;
+        let newConsecutiveLoginDays = stats.consecutiveLoginDays;
+
+        if (lastLoginDate) {
+          const lastDate = new Date(
+            lastLoginDate.getFullYear(),
+            lastLoginDate.getMonth(),
+            lastLoginDate.getDate()
+          );
+          const daysDiff = Math.floor(
+            (today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          if (daysDiff === 1) {
+            newConsecutiveLoginDays = stats.consecutiveLoginDays + 1;
+          } else if (daysDiff > 1) {
+            newConsecutiveLoginDays = 1;
+          }
+        } else {
+          newConsecutiveLoginDays = 1;
+        }
+
+        // 統計を更新
+        await tx.userStats.update({
+          where: { userId: user.id },
+          data: {
+            consecutiveLoginDays: newConsecutiveLoginDays,
+            lastLoginDate: today,
+          },
+        });
+
+        // 連続ログイン称号チェック
+        await checkLoginStreakTitles(tx, user.id, newConsecutiveLoginDays);
+
+        // ユーザー情報を更新
+        const updatedUser = await tx.user.update({
+          where: { id: user.id },
+          data: {
+            lastLoginAt: now,
+            lastLoginBonusAt: loginBonusGranted ? now : undefined,
+          },
+        });
+
+        // コイン保有称号チェック
+        await checkCoinsTitles(tx, user.id, updatedUser.coins);
+
+        return updatedUser;
       });
 
+      const message = loginBonusGranted
+        ? `ログインしました（ログインボーナス${LOGIN_BONUS_COINS}コインをプレゼントボックスに追加しました）`
+        : "ログインしました";
+
       return reply.send({
-        message: "ログインしました",
+        message,
         token: signAuthToken({ userId: updated.id }),
         user: formatAuthUser(updated),
       });

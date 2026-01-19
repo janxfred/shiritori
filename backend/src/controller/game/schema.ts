@@ -115,3 +115,22 @@ export const checkTimeResponseSchema = z.object({
 export const errorResponseSchema = z.object({
   message: z.string(),
 });
+
+/** AI対戦結果記録リクエスト */
+export const recordAiMatchRequestSchema = z.object({
+  result: z.enum(["win", "loss", "draw"]),
+  aiLevel: aiLevelSchema,
+  aiCapturedChars: z.array(z.string()).optional(),
+});
+
+/** AI対戦結果記録レスポンス */
+export const recordAiMatchResponseSchema = z.object({
+  message: z.string(),
+  newTitles: z.array(
+    z.object({
+      titleId: z.string(),
+      titleName: z.string(),
+      description: z.string(),
+    })
+  ),
+});
