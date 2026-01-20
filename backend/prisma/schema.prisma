@@ -52,6 +52,7 @@ model User {
   isCheater    Boolean  @default(false) @map("is_cheater")
   emailLinkedAt DateTime? @map("email_linked_at")
   lastLoginAt  DateTime @default(now()) @map("last_login_at")
+  lastLoginBonusAt DateTime? @map("last_login_bonus_at")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -71,6 +72,9 @@ model User {
   // 戦績
   stats        UserStats?
   matchHistory MatchHistory[]
+
+  // プレゼントボックス
+  presents     PresentBox[]
 
   @@map("users")
 }
@@ -197,6 +201,13 @@ model UserStats {
   currentStreak Int @default(0) @map("current_streak")
   maxStreak     Int @default(0) @map("max_streak")
 
+  // 追加統計
+  gachaCount           Int @default(0) @map("gacha_count")
+  consecutiveLoginDays Int @default(0) @map("consecutive_login_days")
+  lastLoginDate        DateTime? @map("last_login_date")
+  currentLoseStreak    Int @default(0) @map("current_lose_streak")
+  aiMatchCount         Int @default(0) @map("ai_match_count")
+
   @@map("user_stats")
 }
 
@@ -212,4 +223,34 @@ model MatchHistory {
 
   @@index([userId, createdAt])
   @@map("match_histories")
+}
+
+// ===========================================
+// プレゼントボックス
+// ===========================================
+
+model PresentBox {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+
+  // プレゼントの種類: "coin", "title", "message", "icon", "item"
+  type      String
+  // 対象のID（titleId, messageIdなど）、coinの場合はnull
+  targetId  String?  @map("target_id")
+  // コインの場合の数量
+  amount    Int      @default(0)
+  // プレゼントの説明
+  description String
+
+  // 受け取り済みフラグ
+  claimed   Boolean  @default(false)
+  claimedAt DateTime? @map("claimed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime? @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, claimed])
+  @@map("present_boxes")
 }

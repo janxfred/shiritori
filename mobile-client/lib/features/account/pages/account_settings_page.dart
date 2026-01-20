@@ -795,7 +795,7 @@ class _ProfileSummaryCard extends StatelessWidget {
                 ],
               ),
             const SizedBox(height: 12),
-            const Text('戦歴'),
+            const Text('対人戦歴'),
             const SizedBox(height: 12),
             if (stats == null)
               const Text('未取得')
