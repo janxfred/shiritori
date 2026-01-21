@@ -1,6 +1,6 @@
 # Web Frontend
 
-Next.js（App Router）製の「悪魔的しりとり」フロントエンド。
+Next.js（App Router）製の「わがまましりとり」フロントエンド。
 
 ## 技術スタック
 
@@ -149,7 +149,7 @@ function useCreateUser() {
         method: "POST",
         body: arg,
       });
-    }
+    },
   );
 }
 
@@ -186,7 +186,7 @@ import { createSwrFetcher } from "@/lib/fetcher";
 function useUser(userId: string) {
   return useSWR(
     `/api/users/${userId}`,
-    createSwrFetcher(getUserResponseSchema)
+    createSwrFetcher(getUserResponseSchema),
   );
 }
 ```
@@ -205,7 +205,7 @@ function useUpdateUser(userId: string) {
         method: "PUT",
         body: arg,
       });
-    }
+    },
   );
 }
 ```

@@ -1,6 +1,6 @@
 /**
  * ゲームコントローラー
- * 悪魔的しりとりのAPI エンドポイント
+ * わがまましりとりのAPI エンドポイント
  */
 
 import {
@@ -64,7 +64,7 @@ export default async function (fastify: ServerInstance) {
         tags: ["Game"],
         summary: "ゲーム開始",
         description:
-          "新しい悪魔的しりとりゲームを開始します。AIレベルを指定できます（1: 初級, 2: 中級, 3: 上級）。",
+          "新しいわがまましりとりゲームを開始します。AIレベルを指定できます（1: 初級, 2: 中級, 3: 上級）。",
         body: createGameRequestSchema,
         response: {
           201: createGameResponseSchema,
@@ -103,7 +103,7 @@ export default async function (fastify: ServerInstance) {
         startChar,
         firstTurn,
       });
-    }
+    },
   );
 
   /**
@@ -136,7 +136,7 @@ export default async function (fastify: ServerInstance) {
       return reply.send({
         session: sessionToJson(session),
       });
-    }
+    },
   );
 
   /**
@@ -176,7 +176,7 @@ export default async function (fastify: ServerInstance) {
         gameOver: result.gameOver,
         winner: result.winner,
       });
-    }
+    },
   );
 
   /**
@@ -214,7 +214,7 @@ export default async function (fastify: ServerInstance) {
           ? "時は金なり…汝は時を浪費した。敗北だ。"
           : undefined,
       });
-    }
+    },
   );
 
   /**
@@ -288,7 +288,7 @@ export default async function (fastify: ServerInstance) {
         session: sessionToJson(session),
         gameOver: false,
       });
-    }
+    },
   );
 
   /**
@@ -300,8 +300,7 @@ export default async function (fastify: ServerInstance) {
       schema: {
         tags: ["Game"],
         summary: "AI対戦結果記録",
-        description:
-          "AI対戦の結果を記録し、称号条件をチェックします。",
+        description: "AI対戦の結果を記録し、称号条件をチェックします。",
         body: recordAiMatchRequestSchema,
         response: {
           200: recordAiMatchResponseSchema,
@@ -389,28 +388,28 @@ export default async function (fastify: ServerInstance) {
         const winStreakTitles = await checkWinStreakTitles(
           tx,
           user.id,
-          currentStreak
+          currentStreak,
         );
         titles.push(...winStreakTitles);
 
         const loseStreakTitles = await checkLoseStreakTitles(
           tx,
           user.id,
-          currentLoseStreak
+          currentLoseStreak,
         );
         titles.push(...loseStreakTitles);
 
         const totalWinsTitles = await checkTotalWinsTitles(
           tx,
           user.id,
-          totalWins
+          totalWins,
         );
         titles.push(...totalWinsTitles);
 
         const aiMatchTitles = await checkAiMatchTitles(
           tx,
           user.id,
-          aiMatchCount
+          aiMatchCount,
         );
         titles.push(...aiMatchTitles);
 
@@ -418,7 +417,7 @@ export default async function (fastify: ServerInstance) {
         const soulEaterTitles = await checkSoulEaterTitle(
           tx,
           user.id,
-          user.soulCount
+          user.soulCount,
         );
         titles.push(...soulEaterTitles);
 
@@ -428,7 +427,7 @@ export default async function (fastify: ServerInstance) {
             tx,
             user.id,
             true,
-            aiCapturedChars
+            aiCapturedChars,
           );
           titles.push(...transcenderTitles);
         }
@@ -440,6 +439,6 @@ export default async function (fastify: ServerInstance) {
         message: "AI対戦結果を記録しました",
         newTitles,
       });
-    }
+    },
   );
 }

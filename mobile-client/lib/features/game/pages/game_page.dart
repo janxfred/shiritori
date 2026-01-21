@@ -1,4 +1,4 @@
-// 悪魔的しりとり ゲーム画面
+// わがまましりとり ゲーム画面
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -411,17 +411,17 @@ class _GamePageState extends ConsumerState<GamePage>
                     GamePhase.overtimeAnnounce => _buildOvertimeAnnounce(),
                     GamePhase.gameOver => _buildGameScreen(), // ゲームオーバー時も背景はゲーム画面
                   },
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: IconButton(
-                      tooltip: 'アカウント設定',
-                      onPressed: () => context.push('/account'),
-                      icon: const Icon(Icons.settings),
-                      color: const Color(0xFFD4AF37),
-                    ),
-                  ),
                   if (_phase == GamePhase.title) ...[
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton(
+                        tooltip: 'アカウント設定',
+                        onPressed: () => context.push('/account'),
+                        icon: const Icon(Icons.settings),
+                        color: const Color(0xFFD4AF37),
+                      ),
+                    ),
                     Positioned(
                       top: 8,
                       left: 8,
@@ -509,7 +509,7 @@ class _GamePageState extends ConsumerState<GamePage>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
-                        '悪魔的',
+                        'わがまま',
                         style: TextStyle(
                           fontSize: 48,
                           color: Color(0xFFD4AF37),

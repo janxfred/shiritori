@@ -1,17 +1,17 @@
-@import 'tailwindcss';
-@import 'tailwindcss/utilities';
+@import "tailwindcss";
+@import "tailwindcss/utilities";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* 悪魔的しりとり カラーパレット */
-  --demon-black: #1E1E1E;
-  --demon-crimson: #3D0000;
-  --demon-gold: #D4AF37;
-  --demon-blood: #8B0000;
-  --demon-shadow: #0D0D0D;
-  --demon-parchment: #F5E6C8;
-  --demon-parchment-dark: #D4C4A8;
+  /* わがまましりとり カラーパレット */
+  --demon-black: #1e1e1e;
+  --demon-crimson: #3d0000;
+  --demon-gold: #d4af37;
+  --demon-blood: #8b0000;
+  --demon-shadow: #0d0d0d;
+  --demon-parchment: #f5e6c8;
+  --demon-parchment-dark: #d4c4a8;
 
   --font-size: 14px;
   --background: var(--demon-black);
@@ -83,11 +83,16 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Serif JP', serif;
+    font-family: "Noto Serif JP", serif;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Cinzel', 'Noto Serif JP', serif;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Cinzel", "Noto Serif JP", serif;
   }
 }
 
@@ -102,7 +107,8 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.6;
     filter: drop-shadow(0 0 8px var(--demon-gold));
   }
@@ -113,7 +119,8 @@
 }
 
 @keyframes flicker {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -122,7 +129,8 @@
 }
 
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -131,7 +139,8 @@
 }
 
 @keyframes shake {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateX(0);
   }
   25% {
@@ -164,21 +173,20 @@
 
 /* 羊皮紙風のテクスチャ */
 .parchment-texture {
-  background-image: 
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
 }
 
 /* 金属光沢ボタン */
 .metallic-button {
   background: linear-gradient(
     145deg,
-    #D4AF37 0%,
-    #B8962E 30%,
-    #8B7124 50%,
-    #D4AF37 70%,
-    #F5D061 100%
+    #d4af37 0%,
+    #b8962e 30%,
+    #8b7124 50%,
+    #d4af37 70%,
+    #f5d061 100%
   );
-  box-shadow: 
+  box-shadow:
     0 4px 15px rgba(212, 175, 55, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
     inset 0 -2px 5px rgba(0, 0, 0, 0.3);
@@ -188,13 +196,13 @@
 .metallic-button:hover {
   background: linear-gradient(
     145deg,
-    #F5D061 0%,
-    #D4AF37 30%,
-    #B8962E 50%,
-    #F5D061 70%,
-    #FFE88C 100%
+    #f5d061 0%,
+    #d4af37 30%,
+    #b8962e 50%,
+    #f5d061 70%,
+    #ffe88c 100%
   );
-  box-shadow: 
+  box-shadow:
     0 6px 20px rgba(212, 175, 55, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
     inset 0 -2px 5px rgba(0, 0, 0, 0.2);
@@ -202,7 +210,7 @@
 
 .metallic-button:active {
   transform: translateY(2px);
-  box-shadow: 
+  box-shadow:
     0 2px 10px rgba(212, 175, 55, 0.4),
     inset 0 2px 5px rgba(0, 0, 0, 0.3);
 }
@@ -210,7 +218,7 @@
 /* ゴシック風の装飾ボーダー */
 .gothic-border {
   border: 2px solid var(--demon-gold);
-  box-shadow: 
+  box-shadow:
     0 0 10px rgba(212, 175, 55, 0.3),
     inset 0 0 20px rgba(0, 0, 0, 0.5);
 }
@@ -223,7 +231,7 @@
     rgba(30, 30, 30, 0.95) 100%
   );
   border: 1px solid var(--demon-gold);
-  box-shadow: 
+  box-shadow:
     0 0 20px rgba(212, 175, 55, 0.2),
     inset 0 0 30px rgba(139, 0, 0, 0.3);
 }
@@ -238,7 +246,7 @@
 
 .demon-input:focus {
   border-color: var(--demon-gold);
-  box-shadow: 
+  box-shadow:
     0 0 15px rgba(212, 175, 55, 0.5),
     inset 0 0 10px rgba(212, 175, 55, 0.1);
   outline: none;
@@ -263,7 +271,7 @@
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #F5D061;
+  background: #f5d061;
 }
 
 html {
