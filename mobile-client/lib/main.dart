@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
 import 'features/game/pages/game_page.dart';
 import 'features/users/pages/user_list_page.dart';
@@ -33,6 +34,18 @@ Future<void> main() async {
     await dotenv.load(fileName: '.env.local', mergeWith: dotenv.env);
   } catch (_) {
     // 開発者ローカルの上書き用（任意）
+  }
+
+  // RevenueCat初期化（Play Console制限解除用の最小実装）
+  // TODO: 実際の課金実装時にAPIキーを設定
+  try {
+    await Purchases.configure(
+      PurchasesConfiguration('PLACEHOLDER_API_KEY')
+        ..appUserID = null
+        ..observerMode = false,
+    );
+  } catch (_) {
+    // 初期化エラーは無視（開発環境では有効なAPIキーがない）
   }
 
   MobileAds.instance.initialize();
