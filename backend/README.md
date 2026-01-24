@@ -153,3 +153,125 @@ npm run db:migrate:deploy
 # 任意（サンプルユーザー投入）
 npm run db:seed
 ```
+
+---
+
+## トラブルシューティング
+
+### Prismaスキーマ変更後の500エラー
+
+**症状:**
+
+- API呼び出しで500エラー（Internal Server Error）が発生
+- ログに`ResponseSerializationError`や`Invalid input: expected X, received undefined`が記録される
+- 例: `Response doesn't match the schema: displayNumber expected number, received undefined`
+
+**原因:**
+
+1. **Prismaスキーマに新しいフィールドを追加したが、Prisma Clientが再生成されていない**
+2. **Controller層のレスポンスマッピングで新しいフィールドを含めていない**
+3. **データベース内の既存レコードに新しいフィールドの値が設定されていない**
+
+**解決手順:**
+
+#### 1. Prisma Clientの再生成とキャッシュクリア
+
+```bash
+cd backend
+
+# Prisma Clientのキャッシュをクリア
+rm -rf node_modules/.prisma
+
+# Prisma Clientを再生成
+npm run db:generate
+```
+
+#### 2. Controller層のレスポンスマッピング確認
+
+スキーマ（`schema.ts`）で定義したフィールドが、Controller（`controller.ts`）のレスポンスマッピングに含まれているか確認：
+
+```typescript
+// ❌ 悪い例: displayNumberが抜けている
+icons: icons.map((x) => ({
+  id: x.icon.id,
+  imageUrl: x.icon.imageUrl,
+  rarity: x.icon.rarity,
+  // displayNumber: x.icon.displayNumber, // ← 忘れている！
+}));
+
+// ✅ 良い例: スキーマのすべてのフィールドを含む
+icons: icons.map((x) => ({
+  id: x.icon.id,
+  imageUrl: x.icon.imageUrl,
+  rarity: x.icon.rarity,
+  displayNumber: x.icon.displayNumber, // ← 必須
+}));
+```
+
+#### 3. データベースの既存レコード確認
+
+新しいフィールドがデータベースに実際に存在するか確認：
+
+```bash
+# データベースに接続
+PGPASSWORD=password psql -h localhost -U user -d app_db
+
+# レコード確認（例: icon_mastersテーブル）
+SELECT id, display_number FROM icon_masters LIMIT 10;
+```
+
+もし`display_number`が`null`または存在しない場合、マイグレーションが正しく適用されていないか、既存レコードの更新が必要です。
+
+#### 4. バックエンドサーバーの再起動
+
+変更を反映するため、必ずサーバーを再起動：
+
+```bash
+# 既存プロセスを停止
+pkill -f "tsx src/main.ts"
+
+# 再起動
+npm run dev
+```
+
+#### 5. マイグレーションの確認
+
+マイグレーションが正しく適用されているか確認：
+
+```bash
+npm run db:migrate
+
+# または、Cloud Run等の本番環境では
+npm run db:migrate:deploy
+```
+
+### チェックリスト
+
+Prismaスキーマを変更したら、以下を必ず実行：
+
+- [ ] `npm run db:migrate` でマイグレーション作成・適用
+- [ ] `npm run db:generate` でPrisma Client再生成
+- [ ] Controller層のレスポンスマッピングに新しいフィールドを追加
+- [ ] Zodスキーマ（`schema.ts`）に新しいフィールドを定義
+- [ ] バックエンドサーバーを再起動
+- [ ] 既存データに対するデフォルト値またはデータ移行処理を実装
+
+### よくあるエラーパターン
+
+| エラーメッセージ                        | 原因                               | 解決方法                                             |
+| --------------------------------------- | ---------------------------------- | ---------------------------------------------------- |
+| `expected number, received undefined`   | フィールドがマッピングされていない | Controller層で該当フィールドをマッピングに追加       |
+| `Cannot read property 'X' of undefined` | Prisma Clientが古い型定義を使用    | `rm -rf node_modules/.prisma && npm run db:generate` |
+| `Column does not exist`                 | マイグレーション未適用             | `npm run db:migrate` を実行                          |
+| `ResponseSerializationError`            | レスポンスがZodスキーマと不一致    | スキーマ定義とController実装を一致させる             |
+
+### デバッグのヒント
+
+1. **ログを確認**: バックエンドのコンソール出力で、どのエンドポイントでどのフィールドがエラーになっているか確認
+2. **Prismaスキーマとコードの同期**: `prisma/schema.prisma`、`schema.ts`（Zod）、`controller.ts`（マッピング）の3箇所が一致しているか確認
+3. **段階的にテスト**: 新しいフィールドを追加したら、まず単体でAPIを呼び出してレスポンスを確認
+4. **データベースを直接確認**: `psql`や`npm run prisma:studio`でデータベースの実際の状態を確認
+
+```
+
+```

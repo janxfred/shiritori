@@ -2,6 +2,7 @@ import { getPrisma, isDatabaseConfigured } from "../../database";
 import { type ServerInstance } from "../../lib/fastify";
 import { normalizeIconImageUrl } from "../../lib/asset_url";
 import { verifyAuthToken } from "../../lib/auth";
+import { consumeSoul } from "../../domain/services/SoulRecoveryService";
 import {
   errorResponseSchema,
   matchmakeRequestSchema,
@@ -133,7 +134,10 @@ export default async function (fastify: ServerInstance) {
 
             const consumed = await prisma.user.updateMany({
               where: { id: me.id, soulCount: { gte: 1 } },
-              data: { soulCount: { decrement: 1 } },
+              data: {
+                soulCount: { decrement: 1 },
+                lastSoulUsedAt: new Date(),
+              },
             });
             if (consumed.count !== 1) {
               return reply.status(403).send({ message: "魂が足りません" });
@@ -147,7 +151,7 @@ export default async function (fastify: ServerInstance) {
                 icon: {
                   id: opponent.equippedIcon.id,
                   imageUrl: normalizeIconImageUrl(
-                    opponent.equippedIcon.imageUrl
+                    opponent.equippedIcon.imageUrl,
                   ),
                 },
                 title: opponent.equippedTitle1
@@ -244,7 +248,10 @@ export default async function (fastify: ServerInstance) {
 
       const consumed = await prisma.user.updateMany({
         where: { id: me.id, soulCount: { gte: 1 } },
-        data: { soulCount: { decrement: 1 } },
+        data: {
+          soulCount: { decrement: 1 },
+          lastSoulUsedAt: new Date(),
+        },
       });
       if (consumed.count !== 1) {
         return reply.status(403).send({ message: "魂が足りません" });
@@ -290,6 +297,6 @@ export default async function (fastify: ServerInstance) {
           maxStreak: chosen.isStreakPublic ? stats.maxStreak : null,
         },
       });
-    }
+    },
   );
 }

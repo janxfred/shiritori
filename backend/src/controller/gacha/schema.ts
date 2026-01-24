@@ -15,6 +15,7 @@ export const gachaStatusResponseSchema = z.object({
           id: z.string(),
           imageUrl: z.string(),
           rarity: z.number().int(),
+          displayNumber: z.number().int(),
           probability: z.number(),
         }),
         z.object({
@@ -37,7 +38,7 @@ export const gachaStatusResponseSchema = z.object({
           rarity: z.number().int(),
           probability: z.number(),
         }),
-      ])
+      ]),
     )
     .default([]),
 });
@@ -48,6 +49,7 @@ export const gachaRewardSchema = z.discriminatedUnion("type", [
     id: z.string(),
     imageUrl: z.string(),
     rarity: z.number().int(),
+    displayNumber: z.number().int(),
   }),
   z.object({
     type: z.literal("message"),

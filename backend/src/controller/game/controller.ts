@@ -1,6 +1,6 @@
 /**
  * ゲームコントローラー
- * わがまましりとりのAPI エンドポイント
+ * 悪魔的しりとりのAPI エンドポイント
  */
 
 import {
@@ -64,7 +64,7 @@ export default async function (fastify: ServerInstance) {
         tags: ["Game"],
         summary: "ゲーム開始",
         description:
-          "新しいわがまましりとりゲームを開始します。AIレベルを指定できます（1: 初級, 2: 中級, 3: 上級）。",
+          "新しい悪魔的しりとりゲームを開始します。AIレベルを指定できます（1: 初級, 2: 中級, 3: 上級）。",
         body: createGameRequestSchema,
         response: {
           201: createGameResponseSchema,

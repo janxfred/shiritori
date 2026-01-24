@@ -3,7 +3,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
-  title: "わがまましりとり",
+  title: "悪魔的しりとり",
   description: "悪魔と言葉の勝負を挑め。汝の語彙力、試されるがよい。",
 };
 

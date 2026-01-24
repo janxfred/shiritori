@@ -222,7 +222,7 @@ class _GachaPageState extends ConsumerState<GachaPage> {
                           ...rates.map((e) {
                             final percent = (e.probability * 100).clamp(0, 100);
                             final label = switch (e) {
-                              final GachaIconRateEntry r => 'アイコン（★${r.rarity}）',
+                              final GachaIconRateEntry r => 'アイコンNo.${r.displayNumber}（★${r.rarity}）',
                               final GachaMessageRateEntry r => 'メッセージ（★${r.rarity}） ${r.content}',
                               final GachaTitleRateEntry r => '称号 ${r.name}',
                               final GachaItemRateEntry r => 'アイテム（★${r.rarity}） ${r.name}',

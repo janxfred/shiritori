@@ -1,4 +1,4 @@
-// わがまましりとり ゲーム画面
+// 悪魔的しりとり ゲーム画面
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -509,7 +509,7 @@ class _GamePageState extends ConsumerState<GamePage>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
-                        'わがまま',
+                        '悪魔的',
                         style: TextStyle(
                           fontSize: 48,
                           color: Color(0xFFD4AF37),

@@ -166,14 +166,14 @@ async function commitRatedResultIfNeeded(params: {
     session.status === "draw"
       ? "draw"
       : winnerUserId === session.player1Id
-      ? "win"
-      : "loss";
+        ? "win"
+        : "loss";
   const p2Result: "win" | "loss" | "draw" =
     session.status === "draw"
       ? "draw"
       : winnerUserId === session.player2Id
-      ? "win"
-      : "loss";
+        ? "win"
+        : "loss";
 
   const p1Delta = ratingDeltaFromResult(p1Result);
   const p2Delta = ratingDeltaFromResult(p2Result);
@@ -412,7 +412,10 @@ export default async function (fastify: ServerInstance) {
 
       const consumed = await prisma.user.updateMany({
         where: { id: me.id, soulCount: { gte: 1 } },
-        data: { soulCount: { decrement: 1 } },
+        data: {
+          soulCount: { decrement: 1 },
+          lastSoulUsedAt: new Date(),
+        },
       });
       if (consumed.count !== 1) {
         return reply.status(403).send({ message: "魂が足りません" });
@@ -448,7 +451,7 @@ export default async function (fastify: ServerInstance) {
           maxStreak: opponent.isStreakPublic ? stats.maxStreak : null,
         },
       });
-    }
+    },
   );
 
   fastify.get(
@@ -526,7 +529,7 @@ export default async function (fastify: ServerInstance) {
       }
 
       return reply.send({ session: sessionToJson(session) });
-    }
+    },
   );
 
   fastify.post(
@@ -668,12 +671,12 @@ export default async function (fastify: ServerInstance) {
           judge.reason === "ends_with_n"
             ? "『ん』で終わった。禁忌だ。"
             : judge.reason === "captured_char"
-            ? "相手の確保文字を使った。禁忌だ。"
-            : judge.reason === "not_in_dictionary"
-            ? "その単語は悪魔辞書に存在しない。"
-            : judge.reason === "already_used"
-            ? "既に使われた単語だ。"
-            : "頭文字が違う。";
+              ? "相手の確保文字を使った。禁忌だ。"
+              : judge.reason === "not_in_dictionary"
+                ? "その単語は悪魔辞書に存在しない。"
+                : judge.reason === "already_used"
+                  ? "既に使われた単語だ。"
+                  : "頭文字が違う。";
 
         session.history.push({
           turn: session.turnCount,
@@ -799,7 +802,7 @@ export default async function (fastify: ServerInstance) {
         playerResult: { word, isValid: true, message: "OK", capturedChars },
         gameOver: false,
       });
-    }
+    },
   );
 
   fastify.get(
@@ -889,6 +892,6 @@ export default async function (fastify: ServerInstance) {
         session: sessionToJson(session),
         message: messageForViewer,
       });
-    }
+    },
   );
 }

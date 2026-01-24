@@ -1,6 +1,6 @@
-# わがまましりとり
+# 悪魔的しりとり
 
-Next.js + Fastify + Flutter で作る「わがまましりとり」プロジェクト。
+Next.js + Fastify + Flutter で作る「悪魔的しりとり」プロジェクト。
 
 ## プロジェクト構成
 
@@ -120,6 +120,170 @@ npm run dev
 ```
 
 Flutter（Android エミュレータ）から接続する場合は、`mobile-client/lib/core/api/api_client.dart` が `http://10.0.2.2:3002` を使います。
+
+## トラブルシューティング
+
+### 1. Docker / Rancher Desktop 関連
+
+このプロジェクトでは **Rancher Desktop** を使用してDockerコンテナを管理しています。
+
+#### 問題: "Cannot connect to the Docker daemon" エラー
+
+**症状:**
+
+```
+Cannot connect to the Docker daemon at unix:///Users/xxx/.rd/docker.sock. Is the docker daemon running?
+```
+
+**解決方法:**
+
+1. Rancher Desktopが起動しているか確認
+
+   ```bash
+   ps aux | grep -i rancher | grep -v grep
+   ```
+
+2. Rancher Desktopのバックエンド状態を確認
+
+   ```bash
+   /Applications/Rancher\ Desktop.app/Contents/Resources/resources/darwin/bin/rdctl api /v1/backend_state
+   ```
+
+   もし `{"vmState":"DISABLED"}` なら、バックエンドを起動：
+
+   ```bash
+   /Applications/Rancher\ Desktop.app/Contents/Resources/resources/darwin/bin/rdctl api /v1/backend_state -X PUT -b '{"vmState":"STARTED"}'
+   ```
+
+3. GUIから起動する場合
+   - Rancher Desktopアプリを開く
+   - 左メニューから「Containers」をクリック
+   - コンテナエンジンが自動起動します
+
+4. データベースコンテナを起動
+
+   ```bash
+   cd database
+   docker compose up -d
+   ```
+
+5. コンテナが起動したか確認
+   ```bash
+   docker compose ps
+   # または
+   docker ps
+   ```
+
+### 2. バックエンド接続エラー
+
+#### 問題: "Connection refused" または "Bad state" エラー
+
+**症状:**
+
+- モバイルアプリから「ログインに失敗しました: Bad state: The connection errored」
+- 「ゲーム開始エラー: Connection refused」
+
+**原因と解決方法:**
+
+1. **データベースが起動していない**
+
+   ```bash
+   cd database
+   docker compose ps
+   # redis-1とpostgres-1がUP状態であることを確認
+
+   # 起動していない場合
+   docker compose up -d
+   ```
+
+2. **バックエンドサーバーが起動していない**
+
+   ```bash
+   # ポート3002で起動しているか確認
+   lsof -i :3002
+
+   # 何も表示されない場合は起動
+   cd backend
+   npm run dev
+   ```
+
+3. **既存プロセスがポートを占有している**
+
+   ```bash
+   # 既存プロセスを終了
+   lsof -ti :3002 | xargs kill -9
+
+   # 再起動
+   cd backend
+   npm run dev
+   ```
+
+4. **Prismaクライアントが最新でない**
+   ```bash
+   cd backend
+   npx prisma generate
+   npm run dev
+   ```
+
+### 3. 起動確認チェックリスト
+
+すべてが正常に動作しているか確認：
+
+```bash
+# 1. Dockerが起動しているか
+docker ps
+
+# 2. データベースコンテナが起動しているか
+cd database && docker compose ps
+# Expected: redis-1 (Up), postgres-1 (Up)
+
+# 3. バックエンドが起動しているか
+lsof -i :3002
+# Expected: node process on port 3002
+
+curl http://127.0.0.1:3002/
+# Expected: {"message":"Route GET:/ not found",...}
+
+# 4. (Optional) フロントエンドが起動しているか
+lsof -i :3000
+curl http://localhost:3000/
+```
+
+### 4. 完全リセット手順
+
+すべてがうまくいかない場合の完全リセット：
+
+```bash
+# 1. すべてのプロセスを停止
+pkill -f "tsx src/main.ts"
+pkill -f "next dev"
+
+# 2. Dockerコンテナを停止・削除
+cd database
+docker compose down -v
+
+# 3. Rancher Desktopを再起動
+/Applications/Rancher\ Desktop.app/Contents/Resources/resources/darwin/bin/rdctl shutdown
+sleep 10
+open -a "Rancher Desktop"
+# GUIが起動するまで待つ（約30秒）
+
+# 4. コンテナエンジンを起動
+/Applications/Rancher\ Desktop.app/Contents/Resources/resources/darwin/bin/rdctl api /v1/backend_state -X PUT -b '{"vmState":"STARTED"}'
+sleep 20
+
+# 5. データベースを起動
+cd database
+docker compose up -d
+
+# 6. バックエンドを起動
+cd ../backend
+npm run dev
+
+# 7. モバイルアプリを再起動
+cd ../mobile-client
+flutter run
+```
 
 ## セキュリティ（機密情報）
 
@@ -470,11 +634,11 @@ DBスキーマを変更した。マイグレーションを本番に適用し、
 
 ---
 
-# わがまましりとり：ルール仕様
+# 悪魔的しりとり：ルール仕様
 
 このゲームは，単なるしりとりではなく，特殊なルール（「文字の奪い合い」と「禁忌（お手つき）の回避」）が追加されています．
 
-【わがまましりとり】
+【悪魔的しりとり】
 ・基本のルールは，普通の 2 人で行うしりとり．
 ・当然，名詞のみ使用可能で，固有名詞は使用不可（但し，地名と建物名は使用可能．人名は不可）．
 ・当然，一度使用した単語は，再使用不可．

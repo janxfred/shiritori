@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* わがまましりとり カラーパレット */
+  /* 悪魔的しりとり カラーパレット */
   --demon-black: #1e1e1e;
   --demon-crimson: #3d0000;
   --demon-gold: #d4af37;

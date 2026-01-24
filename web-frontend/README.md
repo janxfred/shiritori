@@ -1,6 +1,6 @@
 # Web Frontend
 
-Next.js（App Router）製の「わがまましりとり」フロントエンド。
+Next.js（App Router）製の「悪魔的しりとり」フロントエンド。
 
 ## 技術スタック
 

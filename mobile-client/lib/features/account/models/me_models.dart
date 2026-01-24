@@ -158,17 +158,20 @@ class InventoryIcon {
     required this.id,
     required this.imageUrl,
     required this.rarity,
+    required this.displayNumber,
   });
 
   final String id;
   final String imageUrl;
   final int rarity;
+  final int displayNumber;
 
   factory InventoryIcon.fromJson(Map<String, dynamic> json) {
     return InventoryIcon(
       id: json['id'] as String,
       imageUrl: json['imageUrl'] as String,
       rarity: (json['rarity'] as num).toInt(),
+      displayNumber: (json['displayNumber'] as num).toInt(),
     );
   }
 }
@@ -235,12 +238,14 @@ class IconCatalogEntry {
     required this.id,
     required this.imageUrl,
     required this.rarity,
+    required this.displayNumber,
     required this.owned,
   });
 
   final String id;
   final String imageUrl;
   final int rarity;
+  final int displayNumber;
   final bool owned;
 
   factory IconCatalogEntry.fromJson(Map<String, dynamic> json) {
@@ -248,6 +253,7 @@ class IconCatalogEntry {
       id: json['id'] as String,
       imageUrl: json['imageUrl'] as String,
       rarity: (json['rarity'] as num).toInt(),
+      displayNumber: (json['displayNumber'] as num).toInt(),
       owned: json['owned'] as bool,
     );
   }

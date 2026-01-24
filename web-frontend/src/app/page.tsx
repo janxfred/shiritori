@@ -255,7 +255,7 @@ export default function HomePage() {
         <div className="text-center">
           {/* タイトル */}
           <h1 className="text-5xl md:text-7xl font-bold text-demon-gold animate-pulse-glow mb-4 tracking-wider">
-            わがまましりとり
+            悪魔的しりとり
           </h1>
           <p className="text-demon-parchment/80 text-lg md:text-xl mb-12 italic">
             Demonic Word Chain
@@ -374,7 +374,7 @@ export default function HomePage() {
       <header className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl md:text-3xl font-bold text-demon-gold">
-            わがまましりとり
+            悪魔的しりとり
           </h1>
           {session && (
             <div className="flex items-center gap-2">

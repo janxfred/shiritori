@@ -35,7 +35,8 @@ model User {
   exp          Int     @default(0)
   rating       Int     @default(1000)
   coins        Int     @default(0)
-  soulCount    Int     @default(5) @map("soul_count")
+  soulCount    Int     @default(7) @map("soul_count")
+  lastSoulUsedAt DateTime? @map("last_soul_used_at")
   isSubscriber Boolean @default(false) @map("is_subscriber")
 
   // 公開設定 (Visibility Flags)
@@ -96,9 +97,10 @@ model MessageMaster {
 }
 
 model IconMaster {
-  id       String @id
-  imageUrl String @map("image_url")
-  rarity   Int    @default(1)
+  id            String @id
+  imageUrl      String @map("image_url")
+  rarity        Int    @default(1)
+  displayNumber Int    @default(0) @map("display_number")
 
   users      UserIcon[]
   equippedBy User[]
