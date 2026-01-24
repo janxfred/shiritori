@@ -124,7 +124,7 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
       appBar: AppBar(
         title: const Text('対人戦'),
         leading: IconButton(
-          tooltip: 'タイトルへ',
+          tooltip: 'ホームへ',
           onPressed: () => context.go('/'),
           icon: const Icon(Icons.home),
         ),

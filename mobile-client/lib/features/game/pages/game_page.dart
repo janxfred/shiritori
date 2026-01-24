@@ -33,7 +33,7 @@ class _GamePageState extends ConsumerState<GamePage>
   final ValueNotifier<int> _remainingTimeMs = ValueNotifier<int>(timeLimitMs);
 
   // ゲーム状態
-  GamePhase _phase = GamePhase.title;
+  GamePhase _phase = GamePhase.home;
   GameSession? _session;
   String _demonMessage = '';
   bool _isSubmitting = false;
@@ -129,7 +129,7 @@ class _GamePageState extends ConsumerState<GamePage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // タイトル画面/未開始は通知しない
+    // ホーム画面/未開始は通知しない
     if (_session == null) return;
     // 既に終了している場合も通知しない
     if ((_session?.status ?? GameStatus.playing) != GameStatus.playing) return;
@@ -384,7 +384,7 @@ class _GamePageState extends ConsumerState<GamePage>
     // 認証状態が変わった時にプレゼント数を更新
     ref.listen(authControllerProvider, (_, next) {
       final session = next.valueOrNull;
-      if (session != null && _phase == GamePhase.title) {
+      if (session != null && _phase == GamePhase.home) {
         _fetchUnclaimedPresentCount();
       }
     });
@@ -406,12 +406,12 @@ class _GamePageState extends ConsumerState<GamePage>
               child: Stack(
                 children: [
                   switch (_phase) {
-                    GamePhase.title => _buildTitleScreen(),
+                    GamePhase.home => _buildHomeScreen(),
                     GamePhase.playing => _buildGameScreen(),
                     GamePhase.overtimeAnnounce => _buildOvertimeAnnounce(),
                     GamePhase.gameOver => _buildGameScreen(), // ゲームオーバー時も背景はゲーム画面
                   },
-                  if (_phase == GamePhase.title) ...[
+                  if (_phase == GamePhase.home) ...[
                     Positioned(
                       top: 8,
                       right: 8,
@@ -486,8 +486,8 @@ class _GamePageState extends ConsumerState<GamePage>
     );
   }
 
-  /// タイトル画面
-  Widget _buildTitleScreen() {
+  /// ホーム画面
+  Widget _buildHomeScreen() {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -1003,14 +1003,14 @@ class _GamePageState extends ConsumerState<GamePage>
                   ),
                 ),
               ),
-            // タイトルに戻るボタン
+            // ホームに戻るボタン
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () {
                   _timer?.cancel();
                   setState(() {
-                    _phase = GamePhase.title;
+                    _phase = GamePhase.home;
                     _session = null;
                     _showGameOverModal = false;
                   });
@@ -1021,7 +1021,7 @@ class _GamePageState extends ConsumerState<GamePage>
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(
-                  'タイトルに戻る',
+                  'ホームに戻る',
                   style: TextStyle(color: Colors.grey[500], fontSize: 12),
                 ),
               ),
@@ -1266,7 +1266,7 @@ class _GamePageState extends ConsumerState<GamePage>
 
 /// ゲームフェーズ
 enum GamePhase {
-  title,
+  home,
   playing,
   overtimeAnnounce,
   gameOver,

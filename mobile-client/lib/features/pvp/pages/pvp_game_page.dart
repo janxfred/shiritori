@@ -826,7 +826,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                   ),
                 ),
                 child: const Text(
-                  'タイトル',
+                  'ホーム',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ),

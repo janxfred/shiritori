@@ -115,11 +115,11 @@ class _PresentPageState extends ConsumerState<PresentPage> {
           ),
         );
 
-        // 1秒後にモーダルを閉じてタイトル画面へ遷移
+        // 1秒後にモーダルを閉じてホーム画面へ遷移
         await Future.delayed(const Duration(seconds: 1));
         if (mounted) {
           context.pop(); // モーダルを閉じる
-          context.go('/'); // タイトル画面へ遷移
+          context.go('/'); // ホーム画面へ遷移
         }
       }
     } on DioException catch (e) {
