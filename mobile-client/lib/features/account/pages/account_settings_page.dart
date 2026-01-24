@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../api/account_api.dart';
 import '../api/me_api.dart';
 import '../models/me_models.dart';
 import '../../../core/api/api_client.dart';
+import '../../../core/services/subscription_service.dart';
 
 final accountApiProvider = Provider<AccountApi>((ref) => AccountApi());
 final meApiProvider = Provider<MeApi>((ref) => MeApi());
@@ -32,8 +34,14 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
   bool _loadingRewardedAd = false;
   bool _claimingRewardedAd = false;
 
+  // サブスクリプション関連
+  CustomerInfo? _customerInfo;
+  bool _loadingSubscription = false;
+  bool _purchasingSubscription = false;
+
   static const _rewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
   static const _inquiryUrl = 'https://forms.gle/7UxDMHUEPPhiMpBH9';
+  static const _subscriptionPackageIdentifier = 'premium_subscription:monthly-standard'; // Google Play StoreのProduct ID
 
   String _resolveImageUrl(String url) {
     final trimmed = url.trim();
@@ -59,6 +67,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
   void initState() {
     super.initState();
     _loadRewardedAd();
+    _loadSubscriptionInfo();
   }
 
   @override
@@ -170,6 +179,110 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('URLを開けませんでした')),
       );
+    }
+  }
+
+  /// サブスクリプション情報を取得
+  Future<void> _loadSubscriptionInfo() async {
+    if (_loadingSubscription) return;
+    setState(() => _loadingSubscription = true);
+    try {
+      final customerInfo = await SubscriptionService.getCustomerInfo();
+      if (!mounted) return;
+      setState(() => _customerInfo = customerInfo);
+    } catch (e) {
+      if (!mounted) return;
+      // エラーは無視（初回取得失敗時など）
+    } finally {
+      if (mounted) setState(() => _loadingSubscription = false);
+    }
+  }
+
+  /// サブスクリプションを購入
+  Future<void> _purchaseSubscription() async {
+    if (_purchasingSubscription || _busy) return;
+
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null) return;
+
+    setState(() => _purchasingSubscription = true);
+    try {
+      // RevenueCatで購入処理
+      final customerInfo = await SubscriptionService.purchaseSubscription(
+        packageIdentifier: _subscriptionPackageIdentifier,
+      );
+
+      // バックエンドに同期
+      final isActive = SubscriptionService.isSubscriber(customerInfo);
+      await SubscriptionService.syncSubscriptionToBackend(
+        token: session.token,
+        isActive: isActive,
+      );
+
+      if (!mounted) return;
+
+      // ローカル状態を更新
+      setState(() => _customerInfo = customerInfo);
+
+      // ユーザー情報をリフレッシュ
+      await _refresh();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('プレミアムプランに加入しました')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('購入に失敗しました: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _purchasingSubscription = false);
+    }
+  }
+
+  /// サブスクリプションを復元
+  Future<void> _restoreSubscription() async {
+    if (_purchasingSubscription || _busy) return;
+
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null) return;
+
+    setState(() => _purchasingSubscription = true);
+    try {
+      // RevenueCatで復元処理
+      final customerInfo = await SubscriptionService.restorePurchases();
+
+      // バックエンドに同期
+      final isActive = SubscriptionService.isSubscriber(customerInfo);
+      await SubscriptionService.syncSubscriptionToBackend(
+        token: session.token,
+        isActive: isActive,
+      );
+
+      if (!mounted) return;
+
+      // ローカル状態を更新
+      setState(() => _customerInfo = customerInfo);
+
+      // ユーザー情報をリフレッシュ
+      await _refresh();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isActive ? '購入履歴を復元しました' : '復元可能な購入が見つかりませんでした',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('復元に失敗しました: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _purchasingSubscription = false);
     }
   }
 
@@ -429,6 +542,13 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
               children: [
                 _ProfileSummaryCard(me: me, inventory: inventory),
                 const SizedBox(height: 12),
+                _SubscriptionCard(
+                  customerInfo: _customerInfo,
+                  loading: _loadingSubscription || _purchasingSubscription,
+                  onPurchase: _purchaseSubscription,
+                  onRestore: _restoreSubscription,
+                ),
+                const SizedBox(height: 12),
                 Card(
                   child: ListTile(
                     title: const Text('広告を見て魂を回復'),
@@ -662,6 +782,105 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// サブスクリプション購入カード
+class _SubscriptionCard extends StatelessWidget {
+  const _SubscriptionCard({
+    required this.customerInfo,
+    required this.loading,
+    required this.onPurchase,
+    required this.onRestore,
+  });
+
+  final CustomerInfo? customerInfo;
+  final bool loading;
+  final VoidCallback onPurchase;
+  final VoidCallback onRestore;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = customerInfo != null && 
+                     SubscriptionService.isSubscriber(customerInfo!);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isActive ? Icons.workspace_premium : Icons.star_border,
+                  color: isActive ? Colors.amber : Colors.grey,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'プレミアムプラン',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (loading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (isActive)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      '加入中',
+                      style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('プレミアム特典:'),
+                  const SizedBox(height: 8),
+                  const Text('• 魂の最大値が15個に増加'),
+                  const Text('• リワード広告で魂が全回復'),
+                  const Text('• バナー広告が非表示'),
+                  const Text('• ログインボーナスが20コインに増加'),
+                ],
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('プレミアムプランに加入すると:'),
+                  const SizedBox(height: 8),
+                  const Text('• 魂の最大値が15個に増加'),
+                  const Text('• リワード広告で魂が全回復'),
+                  const Text('• バナー広告が非表示'),
+                  const Text('• ログインボーナスが20コインに増加'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: onPurchase,
+                    child: const Text('プレミアムプランに加入'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: onRestore,
+                    child: const Text('購入履歴を復元'),
+                  ),
+                ],
+              ),
+          ],
         ),
       ),
     );
