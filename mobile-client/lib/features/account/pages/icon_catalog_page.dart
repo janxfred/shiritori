@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/api/api_client.dart';
+import '../../../core/widgets/banner_ad_widget.dart';
 import '../api/me_api.dart';
 import '../models/me_models.dart';
 
@@ -81,7 +82,10 @@ class _IconCatalogPageState extends ConsumerState<IconCatalogPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('アイコン一覧')),
-      body: sessionAsync.when(
+      body: Column(
+        children: [
+          Expanded(
+            child: sessionAsync.when(
         data: (_) {
           if (session == null) {
             return Center(
@@ -188,6 +192,11 @@ class _IconCatalogPageState extends ConsumerState<IconCatalogPage> {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('エラー: $e')),
+            ),
+          ),
+          if (session != null)
+            BannerAdWidget(isSubscriber: session.user.isSubscriber),
+        ],
       ),
     );
   }
