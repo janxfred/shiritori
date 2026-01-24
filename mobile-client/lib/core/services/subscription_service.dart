@@ -1,4 +1,5 @@
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:dio/dio.dart';
 import '../api/api_client.dart';
 
 /// RevenueCatのサブスクリプション状態を管理するサービス
@@ -40,8 +41,8 @@ class SubscriptionService {
     }
 
     // 購入を実行
-    final purchaseResult = await Purchases.purchasePackage(targetPackage);
-    return purchaseResult.customerInfo;
+    final purchaserInfo = await Purchases.purchasePackage(targetPackage);
+    return purchaserInfo;
   }
 
   /// RevenueCatのサブスクリプション状態をバックエンドに同期
@@ -56,7 +57,9 @@ class SubscriptionService {
     final response = await client.post(
       '/api/subscription/sync',
       data: {'isActive': isActive},
-      options: ApiClient.authorizedOptions(token: token),
+      options: Options(
+        headers: {'Authorization': 'Bearer $token'},
+      ),
     );
 
     if (response.statusCode != 200) {
