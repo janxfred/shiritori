@@ -1,13 +1,22 @@
 import type { Prisma } from "@prisma/client";
 
-const MAX_SOUL_COUNT = 7;
+const MAX_SOUL_COUNT_FREE = 7;
+const MAX_SOUL_COUNT_PREMIUM = 15;
 const FULL_RECOVERY_HOURS = 24;
+
+/**
+ * 魂の最大値を取得（課金状態に応じて変動）
+ */
+export function getMaxSoulCount(isSubscriber: boolean): number {
+  return isSubscriber ? MAX_SOUL_COUNT_PREMIUM : MAX_SOUL_COUNT_FREE;
+}
 
 /**
  * 魂の自動回復をチェックし、必要に応じて全回復させる
  * @param userId ユーザーID
  * @param currentSoulCount 現在の魂の数
  * @param lastSoulUsedAt 最後に魂を使用した日時（null可）
+ * @param isSubscriber 課金状態
  * @param tx トランザクション
  * @returns 回復後の魂の数
  */
@@ -15,10 +24,13 @@ export async function checkAndRecoverSoul(
   userId: string,
   currentSoulCount: number,
   lastSoulUsedAt: Date | null,
+  isSubscriber: boolean,
   tx: Prisma.TransactionClient,
 ): Promise<number> {
+  const maxSoulCount = getMaxSoulCount(isSubscriber);
+  
   // すでに最大値なら何もしない
-  if (currentSoulCount >= MAX_SOUL_COUNT) {
+  if (currentSoulCount >= maxSoulCount) {
     return currentSoulCount;
   }
 
@@ -35,9 +47,9 @@ export async function checkAndRecoverSoul(
   if (hoursSinceLastUse >= FULL_RECOVERY_HOURS) {
     await tx.user.update({
       where: { id: userId },
-      data: { soulCount: MAX_SOUL_COUNT },
+      data: { soulCount: maxSoulCount },
     });
-    return MAX_SOUL_COUNT;
+    return maxSoulCount;
   }
 
   return currentSoulCount;

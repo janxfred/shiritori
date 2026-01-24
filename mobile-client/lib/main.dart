@@ -40,9 +40,8 @@ Future<void> main() async {
   // TODO: 実際の課金実装時にAPIキーを設定
   try {
     await Purchases.configure(
-      PurchasesConfiguration('PLACEHOLDER_API_KEY')
-        ..appUserID = null
-        ..observerMode = false,
+      PurchasesConfiguration('goog_erLlGbZLjiJzdJplicLuSKgaHSs')
+        ..appUserID = null,
     );
   } catch (_) {
     // 初期化エラーは無視（開発環境では有効なAPIキーがない）

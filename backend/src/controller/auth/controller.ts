@@ -17,7 +17,8 @@ import {
   signupResponseSchema,
 } from "./schema";
 
-const LOGIN_BONUS_COINS = 3;
+const LOGIN_BONUS_COINS_FREE = 3;
+const LOGIN_BONUS_COINS_PREMIUM = 20;
 const LOGIN_BONUS_INTERVAL_HOURS = 24;
 
 async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
@@ -218,11 +219,12 @@ export default async function (fastify: ServerInstance) {
         });
 
         // 新規登録時もログインボーナスをプレゼントボックスに追加
+        const bonusAmount = newUser.isSubscriber ? LOGIN_BONUS_COINS_PREMIUM : LOGIN_BONUS_COINS_FREE;
         await tx.presentBox.create({
           data: {
             userId: newUser.id,
             type: "coin",
-            amount: LOGIN_BONUS_COINS,
+            amount: bonusAmount,
             description: "ログインボーナス",
           },
         });
@@ -236,8 +238,9 @@ export default async function (fastify: ServerInstance) {
         return newUser;
       });
 
+      const bonusAmount = user.isSubscriber ? LOGIN_BONUS_COINS_PREMIUM : LOGIN_BONUS_COINS_FREE;
       return reply.status(201).send({
-        message: `アカウントを作成しました（ログインボーナス${LOGIN_BONUS_COINS}コインをプレゼントボックスに追加しました）`,
+        message: `アカウントを作成しました（ログインボーナス${bonusAmount}コインをプレゼントボックスに追加しました）`,
         token: signAuthToken({ userId: user.id }),
         user: formatAuthUser(user),
       });
@@ -299,11 +302,12 @@ export default async function (fastify: ServerInstance) {
 
         if (hoursSinceLastBonus >= LOGIN_BONUS_INTERVAL_HOURS) {
           // ログインボーナスをプレゼントボックスに追加
+          const bonusAmount = user.isSubscriber ? LOGIN_BONUS_COINS_PREMIUM : LOGIN_BONUS_COINS_FREE;
           await tx.presentBox.create({
             data: {
               userId: user.id,
               type: "coin",
-              amount: LOGIN_BONUS_COINS,
+              amount: bonusAmount,
               description: "ログインボーナス",
             },
           });
@@ -371,8 +375,9 @@ export default async function (fastify: ServerInstance) {
         return updatedUser;
       });
 
+      const bonusAmount = updated.isSubscriber ? LOGIN_BONUS_COINS_PREMIUM : LOGIN_BONUS_COINS_FREE;
       const message = loginBonusGranted
-        ? `ログインしました（ログインボーナス${LOGIN_BONUS_COINS}コインをプレゼントボックスに追加しました）`
+        ? `ログインしました（ログインボーナス${bonusAmount}コインをプレゼントボックスに追加しました）`
         : "ログインしました";
 
       return reply.send({
