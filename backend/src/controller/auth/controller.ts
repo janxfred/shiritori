@@ -219,7 +219,9 @@ export default async function (fastify: ServerInstance) {
         });
 
         // 新規登録時もログインボーナスをプレゼントボックスに追加
-        const bonusAmount = newUser.isSubscriber ? LOGIN_BONUS_COINS_PREMIUM : LOGIN_BONUS_COINS_FREE;
+        const bonusAmount = newUser.isSubscriber
+          ? LOGIN_BONUS_COINS_PREMIUM
+          : LOGIN_BONUS_COINS_FREE;
         await tx.presentBox.create({
           data: {
             userId: newUser.id,
@@ -238,7 +240,9 @@ export default async function (fastify: ServerInstance) {
         return newUser;
       });
 
-      const bonusAmount = user.isSubscriber ? LOGIN_BONUS_COINS_PREMIUM : LOGIN_BONUS_COINS_FREE;
+      const bonusAmount = user.isSubscriber
+        ? LOGIN_BONUS_COINS_PREMIUM
+        : LOGIN_BONUS_COINS_FREE;
       return reply.status(201).send({
         message: `アカウントを作成しました（ログインボーナス${bonusAmount}コインをプレゼントボックスに追加しました）`,
         token: signAuthToken({ userId: user.id }),
@@ -302,7 +306,9 @@ export default async function (fastify: ServerInstance) {
 
         if (hoursSinceLastBonus >= LOGIN_BONUS_INTERVAL_HOURS) {
           // ログインボーナスをプレゼントボックスに追加
-          const bonusAmount = user.isSubscriber ? LOGIN_BONUS_COINS_PREMIUM : LOGIN_BONUS_COINS_FREE;
+          const bonusAmount = user.isSubscriber
+            ? LOGIN_BONUS_COINS_PREMIUM
+            : LOGIN_BONUS_COINS_FREE;
           await tx.presentBox.create({
             data: {
               userId: user.id,
@@ -375,7 +381,9 @@ export default async function (fastify: ServerInstance) {
         return updatedUser;
       });
 
-      const bonusAmount = updated.isSubscriber ? LOGIN_BONUS_COINS_PREMIUM : LOGIN_BONUS_COINS_FREE;
+      const bonusAmount = updated.isSubscriber
+        ? LOGIN_BONUS_COINS_PREMIUM
+        : LOGIN_BONUS_COINS_FREE;
       const message = loginBonusGranted
         ? `ログインしました（ログインボーナス${bonusAmount}コインをプレゼントボックスに追加しました）`
         : "ログインしました";

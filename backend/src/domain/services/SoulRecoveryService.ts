@@ -28,7 +28,7 @@ export async function checkAndRecoverSoul(
   tx: Prisma.TransactionClient,
 ): Promise<number> {
   const maxSoulCount = getMaxSoulCount(isSubscriber);
-  
+
   // すでに最大値なら何もしない
   if (currentSoulCount >= maxSoulCount) {
     return currentSoulCount;

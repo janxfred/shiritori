@@ -307,22 +307,23 @@ export default async function (fastify: ServerInstance) {
         return reply.status(401).send({ message: "認証が必要です" });
 
       const prisma = getPrisma();
-      
+
       const currentUser = await prisma.user.findUnique({
         where: { id: payload.userId },
         select: { isSubscriber: true, soulCount: true },
       });
-      
+
       if (!currentUser)
         return reply.status(401).send({ message: "認証が必要です" });
-      
+
       // 課金者は全回復、無課金は+1
-      const { getMaxSoulCount } = await import("../../domain/services/SoulRecoveryService");
+      const { getMaxSoulCount } =
+        await import("../../domain/services/SoulRecoveryService");
       const maxSoulCount = getMaxSoulCount(currentUser.isSubscriber);
-      const newSoulCount = currentUser.isSubscriber 
-        ? maxSoulCount 
+      const newSoulCount = currentUser.isSubscriber
+        ? maxSoulCount
         : Math.min(currentUser.soulCount + 1, maxSoulCount);
-      
+
       const user = await prisma.user.update({
         where: { id: payload.userId },
         data: { soulCount: newSoulCount },
@@ -335,10 +336,10 @@ export default async function (fastify: ServerInstance) {
         select: { result: true, createdAt: true },
       });
 
-      const message = user.isSubscriber 
+      const message = user.isSubscriber
         ? "魂を全回復しました（プレミアム特典）"
         : "魂を1回復しました";
-      
+
       return reply.send({
         message,
         user: formatMe({
