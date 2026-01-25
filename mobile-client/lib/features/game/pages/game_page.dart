@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../api/game_api.dart';
 import '../models/game_models.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/api/api_client.dart';
 import '../../present/api/present_api.dart';
 
 /// 制限時間（ミリ秒）: 40秒
@@ -92,6 +93,19 @@ class _GamePageState extends ConsumerState<GamePage>
     } catch (_) {
       // エラー時は無視
     }
+  }
+
+  String _resolveImageUrl(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) {
+      final base = ApiClient().dio.options.baseUrl;
+      return Uri.parse(base).resolve(trimmed).toString();
+    }
+    return trimmed;
   }
 
   /// バナー広告をロード
@@ -745,10 +759,15 @@ class _GamePageState extends ConsumerState<GamePage>
 
   /// ゲーム画面
   Widget _buildGameScreen() {
+    final session = ref.watch(authControllerProvider).valueOrNull;
+    
     return Column(
       children: [
         // 上部: 悪魔の顔と台詞 + 残り時間
         _buildDemonHeader(),
+        
+        // ユーザー情報エリア
+        if (session != null) _buildPlayerInfo(session),
         
         // 中部: 確保文字エリア
         _buildCapturedCharsArea(),
@@ -836,6 +855,89 @@ class _GamePageState extends ConsumerState<GamePage>
     );
   }
 
+  /// プレイヤー情報表示エリア
+  Widget _buildPlayerInfo(dynamic session) {
+    // AuthUserから装備情報を取得（将来的にバックエンドで対応予定）
+    final iconUrl = session.user.iconId ?? 'default_demon';
+    final message = 'よろしくお願いします'; // session.user.equippedMessage
+    final title = session.user.name; // session.user.equippedTitle1?.name
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D2D2D),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[800]!),
+        ),
+      ),
+      child: Row(
+        children: [
+          // ユーザーのアイコン
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+            ),
+            child: ClipOval(
+              child: iconUrl.startsWith('http') || iconUrl.startsWith('/')
+                  ? Image.network(
+                      _resolveImageUrl(
+                        iconUrl.startsWith('/')
+                            ? iconUrl
+                            : '/static/$iconUrl.jpg',
+                      ),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.grey[700],
+                        child: const Icon(Icons.person, color: Colors.white, size: 28),
+                      ),
+                    )
+                  : Image.network(
+                      _resolveImageUrl('/static/$iconUrl.jpg'),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.grey[700],
+                        child: const Icon(Icons.person, color: Colors.white, size: 28),
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // メッセージと称号を縦並び
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // メッセージ
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                // 称号とユーザー名
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// 確保文字エリア
   Widget _buildCapturedCharsArea() {
     final playerChars = _session?.playerCapturedChars ?? [];
@@ -912,7 +1014,7 @@ class _GamePageState extends ConsumerState<GamePage>
     if (history.isEmpty) {
       return Center(
         child: Text(
-          'しりとりを始めましょう',
+          'しりとりを始めようぞ！',
           style: TextStyle(color: Colors.grey[600]),
         ),
       );

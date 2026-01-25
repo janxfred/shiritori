@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/widgets/banner_ad_widget.dart';
 import '../api/account_api.dart';
 import '../api/me_api.dart';
 import '../models/me_models.dart';
@@ -535,19 +536,22 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
           final status = _status;
           final me = _me;
           final inventory = _inventory;
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _ProfileSummaryCard(me: me, inventory: inventory),
-                const SizedBox(height: 12),
-                _SubscriptionCard(
-                  customerInfo: _customerInfo,
-                  loading: _loadingSubscription || _purchasingSubscription,
-                  onPurchase: _purchaseSubscription,
-                  onRestore: _restoreSubscription,
-                ),
+          return Column(
+            children: [
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      _ProfileSummaryCard(me: me, inventory: inventory),
+                      const SizedBox(height: 12),
+                      _SubscriptionCard(
+                        customerInfo: _customerInfo,
+                        loading: _loadingSubscription || _purchasingSubscription,
+                        onPurchase: _purchaseSubscription,
+                        onRestore: _restoreSubscription,
+                      ),
                 const SizedBox(height: 12),
                 Card(
                   child: ListTile(
@@ -762,8 +766,12 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                     onTap: _openInquiryForm,
                   ),
                 ),
-              ],
-            ),
+                    ],
+                  ),
+                ),
+              ),
+              BannerAdWidget(isSubscriber: session.user.isSubscriber),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -864,10 +872,10 @@ class _SubscriptionCard extends StatelessWidget {
                 children: [
                   const Text('プレミアムプランに加入すると:'),
                   const SizedBox(height: 8),
-                  const Text('• 魂の最大値が15個に増加'),
-                  const Text('• リワード広告で魂が全回復'),
-                  const Text('• バナー広告が非表示'),
-                  const Text('• ログインボーナスが20コインに増加'),
+                  const Text('• 魂の最大値が15個に増加！'),
+                  const Text('• リワード広告で魂が全回復！'),
+                  const Text('• バナー広告が非表示に！'),
+                  const Text('• ログインボーナスが20コインに増加！'),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: onPurchase,

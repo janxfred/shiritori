@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/widgets/banner_ad_widget.dart';
+import '../../../core/services/new_item_service.dart';
 import '../api/me_api.dart';
 import '../models/me_models.dart';
 
@@ -21,6 +22,7 @@ class _IconCatalogPageState extends ConsumerState<IconCatalogPage> {
   bool _busy = false;
   List<IconCatalogEntry>? _icons;
   String? _errorMessage;
+  DateTime? _lastViewedAt;
 
   String _resolveImageUrl(String url) {
     final trimmed = url.trim();
@@ -61,11 +63,31 @@ class _IconCatalogPageState extends ConsumerState<IconCatalogPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadLastViewedAt();
+  }
+
+  Future<void> _loadLastViewedAt() async {
+    final lastViewed = await NewItemService.getIconsLastViewed();
+    if (mounted) {
+      setState(() => _lastViewedAt = lastViewed);
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_icons == null) {
       _load();
     }
+  }
+
+  @override
+  void dispose() {
+    // アカウント設定画面に戻る際に最終表示日時を記録
+    NewItemService.markIconsViewed();
+    super.dispose();
   }
 
   @override
@@ -163,14 +185,23 @@ class _IconCatalogPageState extends ConsumerState<IconCatalogPage> {
               itemCount: icons.length,
               itemBuilder: (context, i) {
                 final icon = icons[i];
+                final showNew = icon.owned && _lastViewedAt == null;
                 final child = icon.owned
-                    ? ClipOval(
-                        child: Image.network(
-                          _resolveImageUrl(icon.imageUrl),
-                          fit: BoxFit.cover,
+                    ? SizedBox(
+                        width: double.infinity,
+                        height: double.infinity,
+                        child: ClipOval(
+                          child: Image.network(
+                            _resolveImageUrl(icon.imageUrl),
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                          ),
                         ),
                       )
                     : Container(
+                        width: double.infinity,
+                        height: double.infinity,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.surface,
@@ -182,9 +213,33 @@ class _IconCatalogPageState extends ConsumerState<IconCatalogPage> {
                         ),
                       );
 
-                return Tooltip(
-                  message: icon.owned ? icon.id : '未獲得',
-                  child: child,
+                return Stack(
+                  children: [
+                    Tooltip(
+                      message: icon.owned ? icon.id : '未獲得',
+                      child: child,
+                    ),
+                    if (showNew)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'NEW',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 );
               },
             ),

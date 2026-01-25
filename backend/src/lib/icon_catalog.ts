@@ -68,6 +68,11 @@ export const ICON_CATALOG: readonly IconCatalogEntry[] = [
 ] as const;
 
 export const ICON_IDS: readonly string[] = ICON_CATALOG.map((x) => x.id);
-export const STATIC_ICON_FILE_NAMES: readonly string[] = ICON_CATALOG.map(
-  (x) => x.staticFileName,
-);
+export const STATIC_ICON_FILE_NAMES: readonly string[] = [
+  ...ICON_CATALOG.map((x) => x.staticFileName),
+  // プレゼント種類用の画像
+  "盾.jpeg",
+  "コイン.jpeg",
+  "吹き出し.jpeg",
+  "アイコン.jpeg",
+];

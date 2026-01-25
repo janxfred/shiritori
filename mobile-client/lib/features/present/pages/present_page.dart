@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/widgets/banner_ad_widget.dart';
+import '../../../core/api/api_client.dart';
 import '../api/present_api.dart';
 import '../models/present_models.dart';
 
@@ -19,6 +21,19 @@ class PresentPage extends ConsumerStatefulWidget {
 class _PresentPageState extends ConsumerState<PresentPage> {
   bool _busy = false;
   PresentListResponse? _list;
+
+  String _resolveImageUrl(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) {
+      final base = ApiClient().dio.options.baseUrl;
+      return Uri.parse(base).resolve(trimmed).toString();
+    }
+    return trimmed;
+  }
 
   String _friendlyApiErrorMessage(DioException e) {
     final data = e.response?.data;
@@ -119,7 +134,11 @@ class _PresentPageState extends ConsumerState<PresentPage> {
         await Future.delayed(const Duration(seconds: 1));
         if (mounted) {
           context.pop(); // モーダルを閉じる
-          context.go('/'); // ホーム画面へ遷移
+          // プレゼント一覧を更新してから遷移
+          await _refresh();
+          if (mounted) {
+            context.go('/'); // ホーム画面へ遷移
+          }
         }
       }
     } on DioException catch (e) {
@@ -159,6 +178,21 @@ class _PresentPageState extends ConsumerState<PresentPage> {
         return 'アイテム';
       default:
         return type;
+    }
+  }
+
+  String _getTypeImagePath(String type) {
+    switch (type) {
+      case 'coin':
+        return '/static/コイン.jpeg';
+      case 'title':
+        return '/static/盾.jpeg';
+      case 'message':
+        return '/static/吹き出し.jpeg';
+      case 'icon':
+        return '/static/アイコン.jpeg';
+      default:
+        return '';
     }
   }
 
@@ -245,46 +279,49 @@ class _PresentPageState extends ConsumerState<PresentPage> {
           final list = _list;
           final presents = list?.presents ?? [];
 
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: Column(
-              children: [
-                // 一括受け取りボタン
-                if (presents.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2D2D2D),
-                      border: Border(
-                        bottom: BorderSide(color: Colors.grey[800]!),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '未受け取り: ${presents.length}件',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
+          return Column(
+            children: [
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: Column(
+                    children: [
+                      // 一括受け取りボタン
+                      if (presents.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2D2D2D),
+                            border: Border(
+                              bottom: BorderSide(color: Colors.grey[800]!),
                             ),
                           ),
-                        ),
-                        ElevatedButton(
-                          onPressed: _busy ? null : _claimAll,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFD4AF37),
-                            foregroundColor: Colors.black,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '未受け取り: ${presents.length}件',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              ElevatedButton(
+                                onPressed: _busy ? null : _claimAll,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFD4AF37),
+                                  foregroundColor: Colors.black,
+                                ),
+                                child: Text(_busy ? '受け取り中…' : 'すべて受け取る'),
+                              ),
+                            ],
                           ),
-                          child: Text(_busy ? '受け取り中…' : 'すべて受け取る'),
                         ),
-                      ],
-                    ),
-                  ),
 
-                // プレゼント一覧
-                Expanded(
-                  child: _busy && list == null
+                      // プレゼント一覧
+                      Expanded(
+                        child: _busy && list == null
                       ? const Center(child: CircularProgressIndicator())
                       : presents.isEmpty
                           ? Center(
@@ -312,6 +349,8 @@ class _PresentPageState extends ConsumerState<PresentPage> {
                               itemCount: presents.length,
                               itemBuilder: (context, index) {
                                 final present = presents[index];
+                                final imagePath = _getTypeImagePath(present.type);
+                                
                                 return Card(
                                   color: const Color(0xFF2D2D2D),
                                   margin: const EdgeInsets.symmetric(
@@ -319,13 +358,20 @@ class _PresentPageState extends ConsumerState<PresentPage> {
                                     vertical: 4,
                                   ),
                                   child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: _getTypeColor(present.type).withValues(alpha: 51),
-                                      child: Icon(
-                                        _getTypeIcon(present.type),
-                                        color: _getTypeColor(present.type),
-                                      ),
-                                    ),
+                                    leading: imagePath.isNotEmpty
+                                        ? CircleAvatar(
+                                            backgroundColor: Colors.transparent,
+                                            backgroundImage: NetworkImage(
+                                              _resolveImageUrl(imagePath),
+                                            ),
+                                          )
+                                        : CircleAvatar(
+                                            backgroundColor: _getTypeColor(present.type).withValues(alpha: 51),
+                                            child: Icon(
+                                              _getTypeIcon(present.type),
+                                              color: _getTypeColor(present.type),
+                                            ),
+                                          ),
                                     title: Text(
                                       present.description,
                                       style: const TextStyle(color: Colors.white),
@@ -338,9 +384,13 @@ class _PresentPageState extends ConsumerState<PresentPage> {
                                 );
                               },
                             ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+              BannerAdWidget(isSubscriber: session.user.isSubscriber),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
