@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/widgets/banner_ad_widget.dart';
+import '../../../core/services/new_item_service.dart';
 import '../api/me_api.dart';
 import '../models/me_models.dart';
 
@@ -19,6 +21,7 @@ class _TitleCatalogPageState extends ConsumerState<TitleCatalogPage> {
   bool _busy = false;
   List<TitleCatalogEntry>? _titles;
   String? _errorMessage;
+  DateTime? _lastViewedAt;
 
   Future<void> _load() async {
     if (_busy) return;
@@ -46,11 +49,31 @@ class _TitleCatalogPageState extends ConsumerState<TitleCatalogPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadLastViewedAt();
+  }
+
+  Future<void> _loadLastViewedAt() async {
+    final lastViewed = await NewItemService.getTitlesLastViewed();
+    if (mounted) {
+      setState(() => _lastViewedAt = lastViewed);
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_titles == null) {
       _load();
     }
+  }
+
+  @override
+  void dispose() {
+    // アカウント設定画面に戻る際に最終表示日時を記録
+    NewItemService.markTitlesViewed();
+    super.dispose();
   }
 
   @override
@@ -67,7 +90,10 @@ class _TitleCatalogPageState extends ConsumerState<TitleCatalogPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('称号一覧')),
-      body: sessionAsync.when(
+      body: Column(
+        children: [
+          Expanded(
+            child: sessionAsync.when(
         data: (_) {
           if (session == null) {
             return Center(
@@ -141,8 +167,29 @@ class _TitleCatalogPageState extends ConsumerState<TitleCatalogPage> {
               itemBuilder: (context, i) {
                 final t = titles[i];
                 final name = t.owned ? t.name : '???';
+                final showNew = t.owned && _lastViewedAt == null;
                 return ListTile(
-                  title: Text(name),
+                  title: Row(
+                    children: [
+                      Expanded(child: Text(name)),
+                      if (showNew)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'NEW',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   subtitle: Text('獲得条件: ${t.condition}'),
                 );
               },
@@ -151,6 +198,11 @@ class _TitleCatalogPageState extends ConsumerState<TitleCatalogPage> {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('エラー: $e')),
+            ),
+          ),
+          if (session != null)
+            BannerAdWidget(isSubscriber: session.user.isSubscriber),
+        ],
       ),
     );
   }

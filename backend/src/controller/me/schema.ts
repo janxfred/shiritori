@@ -80,6 +80,7 @@ export const inventoryItemSchema = z.object({
 
 export const inventoryIconSchema = inventoryItemSchema.extend({
   imageUrl: z.string(),
+  displayNumber: z.number().int(),
 });
 
 export const inventoryMessageSchema = inventoryItemSchema.extend({
@@ -115,6 +116,7 @@ export const iconCatalogEntrySchema = z.object({
   id: z.string(),
   imageUrl: z.string(),
   rarity: z.number().int(),
+  displayNumber: z.number().int(),
   owned: z.boolean(),
 });
 

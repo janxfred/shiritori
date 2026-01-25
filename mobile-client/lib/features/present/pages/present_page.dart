@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/widgets/banner_ad_widget.dart';
+import '../../../core/api/api_client.dart';
 import '../api/present_api.dart';
 import '../models/present_models.dart';
 
@@ -19,6 +21,19 @@ class PresentPage extends ConsumerStatefulWidget {
 class _PresentPageState extends ConsumerState<PresentPage> {
   bool _busy = false;
   PresentListResponse? _list;
+
+  String _resolveImageUrl(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) {
+      final base = ApiClient().dio.options.baseUrl;
+      return Uri.parse(base).resolve(trimmed).toString();
+    }
+    return trimmed;
+  }
 
   String _friendlyApiErrorMessage(DioException e) {
     final data = e.response?.data;
@@ -68,10 +83,6 @@ class _PresentPageState extends ConsumerState<PresentPage> {
       final result = await api.claimAll(token: session.token);
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message)),
-      );
-
       // コインの合計を計算して更新
       final coinReward = result.rewards
           .where((r) => r.type == 'coin')
@@ -82,45 +93,54 @@ class _PresentPageState extends ConsumerState<PresentPage> {
             );
       }
 
-      await _refresh();
-    } on DioException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_friendlyApiErrorMessage(e))),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('受け取りに失敗しました: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
+      // モーダルを表示
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Card(
+                color: Color(0xFF2D2D2D),
+                child: Padding(
+                  padding: EdgeInsets.all(32.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.card_giftcard,
+                        size: 64,
+                        color: Color(0xFFD4AF37),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'プレゼントを受け取りました！',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
 
-  Future<void> _claimSingle(String presentId) async {
-    if (_busy) return;
-    final session = ref.read(authControllerProvider).valueOrNull;
-    if (session == null) return;
-
-    setState(() => _busy = true);
-    try {
-      final api = ref.read(presentApiProvider);
-      final result = await api.claim(token: session.token, presentId: presentId);
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message)),
-      );
-
-      // コイン報酬の場合は更新
-      if (result.reward.type == 'coin') {
-        ref.read(authControllerProvider.notifier).updateUser(
-              session.user.copyWith(coins: session.user.coins + result.reward.amount),
-            );
+        // 1秒後にモーダルを閉じてホーム画面へ遷移
+        await Future.delayed(const Duration(seconds: 1));
+        if (mounted) {
+          context.pop(); // モーダルを閉じる
+          // プレゼント一覧を更新してから遷移
+          await _refresh();
+          if (mounted) {
+            context.pop(); // ホーム画面へ戻る
+          }
+        }
       }
-
-      await _refresh();
     } on DioException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -158,6 +178,21 @@ class _PresentPageState extends ConsumerState<PresentPage> {
         return 'アイテム';
       default:
         return type;
+    }
+  }
+
+  String _getTypeImagePath(String type) {
+    switch (type) {
+      case 'coin':
+        return '/static/コイン.jpeg';
+      case 'title':
+        return '/static/盾.jpeg';
+      case 'message':
+        return '/static/吹き出し.jpeg';
+      case 'icon':
+        return '/static/アイコン.jpeg';
+      default:
+        return '';
     }
   }
 
@@ -244,46 +279,49 @@ class _PresentPageState extends ConsumerState<PresentPage> {
           final list = _list;
           final presents = list?.presents ?? [];
 
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: Column(
-              children: [
-                // 一括受け取りボタン
-                if (presents.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2D2D2D),
-                      border: Border(
-                        bottom: BorderSide(color: Colors.grey[800]!),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '未受け取り: ${presents.length}件',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
+          return Column(
+            children: [
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: Column(
+                    children: [
+                      // 一括受け取りボタン
+                      if (presents.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2D2D2D),
+                            border: Border(
+                              bottom: BorderSide(color: Colors.grey[800]!),
                             ),
                           ),
-                        ),
-                        ElevatedButton(
-                          onPressed: _busy ? null : _claimAll,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFD4AF37),
-                            foregroundColor: Colors.black,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '未受け取り: ${presents.length}件',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              ElevatedButton(
+                                onPressed: _busy ? null : _claimAll,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFD4AF37),
+                                  foregroundColor: Colors.black,
+                                ),
+                                child: Text(_busy ? '受け取り中…' : 'すべて受け取る'),
+                              ),
+                            ],
                           ),
-                          child: Text(_busy ? '受け取り中…' : 'すべて受け取る'),
                         ),
-                      ],
-                    ),
-                  ),
 
-                // プレゼント一覧
-                Expanded(
-                  child: _busy && list == null
+                      // プレゼント一覧
+                      Expanded(
+                        child: _busy && list == null
                       ? const Center(child: CircularProgressIndicator())
                       : presents.isEmpty
                           ? Center(
@@ -311,6 +349,8 @@ class _PresentPageState extends ConsumerState<PresentPage> {
                               itemCount: presents.length,
                               itemBuilder: (context, index) {
                                 final present = presents[index];
+                                final imagePath = _getTypeImagePath(present.type);
+                                
                                 return Card(
                                   color: const Color(0xFF2D2D2D),
                                   margin: const EdgeInsets.symmetric(
@@ -318,13 +358,20 @@ class _PresentPageState extends ConsumerState<PresentPage> {
                                     vertical: 4,
                                   ),
                                   child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: _getTypeColor(present.type).withValues(alpha: 51),
-                                      child: Icon(
-                                        _getTypeIcon(present.type),
-                                        color: _getTypeColor(present.type),
-                                      ),
-                                    ),
+                                    leading: imagePath.isNotEmpty
+                                        ? CircleAvatar(
+                                            backgroundColor: Colors.transparent,
+                                            backgroundImage: NetworkImage(
+                                              _resolveImageUrl(imagePath),
+                                            ),
+                                          )
+                                        : CircleAvatar(
+                                            backgroundColor: _getTypeColor(present.type).withValues(alpha: 51),
+                                            child: Icon(
+                                              _getTypeIcon(present.type),
+                                              color: _getTypeColor(present.type),
+                                            ),
+                                          ),
                                     title: Text(
                                       present.description,
                                       style: const TextStyle(color: Colors.white),
@@ -333,25 +380,17 @@ class _PresentPageState extends ConsumerState<PresentPage> {
                                       '${_getTypeLabel(present.type)}${present.type == 'coin' ? ' ×${present.amount}' : ''}',
                                       style: TextStyle(color: Colors.grey[400]),
                                     ),
-                                    trailing: ElevatedButton(
-                                      onPressed: _busy ? null : () => _claimSingle(present.id),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF8B0000),
-                                        foregroundColor: const Color(0xFFD4AF37),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                      ),
-                                      child: const Text('受け取る'),
-                                    ),
                                   ),
                                 );
                               },
                             ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+              BannerAdWidget(isSubscriber: session.user.isSubscriber),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

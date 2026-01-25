@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/widgets/banner_ad_widget.dart';
+import '../../../core/services/new_item_service.dart';
 import '../api/me_api.dart';
 import '../models/me_models.dart';
 
@@ -19,6 +21,7 @@ class _MessageCatalogPageState extends ConsumerState<MessageCatalogPage> {
   bool _busy = false;
   List<MessageCatalogEntry>? _messages;
   String? _errorMessage;
+  DateTime? _lastViewedAt;
 
   Future<void> _load() async {
     if (_busy) return;
@@ -46,11 +49,31 @@ class _MessageCatalogPageState extends ConsumerState<MessageCatalogPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadLastViewedAt();
+  }
+
+  Future<void> _loadLastViewedAt() async {
+    final lastViewed = await NewItemService.getMessagesLastViewed();
+    if (mounted) {
+      setState(() => _lastViewedAt = lastViewed);
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_messages == null) {
       _load();
     }
+  }
+
+  @override
+  void dispose() {
+    // アカウント設定画面に戻る際に最終表示日時を記録
+    NewItemService.markMessagesViewed();
+    super.dispose();
   }
 
   @override
@@ -67,7 +90,10 @@ class _MessageCatalogPageState extends ConsumerState<MessageCatalogPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('メッセージ一覧')),
-      body: sessionAsync.when(
+      body: Column(
+        children: [
+          Expanded(
+            child: sessionAsync.when(
         data: (_) {
           if (session == null) {
             return Center(
@@ -141,8 +167,29 @@ class _MessageCatalogPageState extends ConsumerState<MessageCatalogPage> {
               itemBuilder: (context, i) {
                 final m = messages[i];
                 final content = m.owned ? m.content : '???';
+                final showNew = m.owned && _lastViewedAt == null;
                 return ListTile(
-                  title: Text(content),
+                  title: Row(
+                    children: [
+                      Expanded(child: Text(content)),
+                      if (showNew)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'NEW',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   subtitle: Text('獲得条件: ${m.condition}'),
                 );
               },
@@ -151,6 +198,11 @@ class _MessageCatalogPageState extends ConsumerState<MessageCatalogPage> {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('エラー: $e')),
+            ),
+          ),
+          if (session != null)
+            BannerAdWidget(isSubscriber: session.user.isSubscriber),
+        ],
       ),
     );
   }

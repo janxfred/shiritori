@@ -3,6 +3,7 @@ import { normalizeIconImageUrl } from "../../lib/asset_url";
 import { verifyAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
 import { ICON_CATALOG } from "../../lib/icon_catalog";
+import { checkAndRecoverSoul } from "../../domain/services/SoulRecoveryService";
 import {
   errorResponseSchema,
   getIconCatalogResponseSchema,
@@ -114,6 +115,24 @@ export default async function (fastify: ServerInstance) {
         return reply.status(401).send({ message: "認証が必要です" });
 
       const prisma = getPrisma();
+
+      // 魂の自動回復をチェック
+      const userBeforeRecovery = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { soulCount: true, lastSoulUsedAt: true, isSubscriber: true },
+      });
+
+      if (!userBeforeRecovery)
+        return reply.status(401).send({ message: "認証が必要です" });
+
+      const recoveredSoulCount = await checkAndRecoverSoul(
+        payload.userId,
+        userBeforeRecovery.soulCount,
+        userBeforeRecovery.lastSoulUsedAt,
+        userBeforeRecovery.isSubscriber,
+        prisma,
+      );
+
       const user = await prisma.user.findUnique({
         where: { id: payload.userId },
         include: { stats: true },
@@ -136,7 +155,7 @@ export default async function (fastify: ServerInstance) {
           lastMatchAt: lastMatch ? lastMatch.createdAt.toISOString() : null,
         }),
       });
-    }
+    },
   );
 
   fastify.patch(
@@ -257,7 +276,7 @@ export default async function (fastify: ServerInstance) {
           lastMatchAt: lastMatch ? lastMatch.createdAt.toISOString() : null,
         }),
       });
-    }
+    },
   );
 
   fastify.post(
@@ -288,9 +307,26 @@ export default async function (fastify: ServerInstance) {
         return reply.status(401).send({ message: "認証が必要です" });
 
       const prisma = getPrisma();
+
+      const currentUser = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { isSubscriber: true, soulCount: true },
+      });
+
+      if (!currentUser)
+        return reply.status(401).send({ message: "認証が必要です" });
+
+      // 課金者は全回復、無課金は+1
+      const { getMaxSoulCount } =
+        await import("../../domain/services/SoulRecoveryService");
+      const maxSoulCount = getMaxSoulCount(currentUser.isSubscriber);
+      const newSoulCount = currentUser.isSubscriber
+        ? maxSoulCount
+        : Math.min(currentUser.soulCount + 1, maxSoulCount);
+
       const user = await prisma.user.update({
         where: { id: payload.userId },
-        data: { soulCount: { increment: 1 } },
+        data: { soulCount: newSoulCount },
         include: { stats: true },
       });
 
@@ -300,8 +336,12 @@ export default async function (fastify: ServerInstance) {
         select: { result: true, createdAt: true },
       });
 
+      const message = user.isSubscriber
+        ? "魂を全回復しました（プレミアム特典）"
+        : "魂を1回復しました";
+
       return reply.send({
-        message: "魂を1回復しました",
+        message,
         user: formatMe({
           ...user,
           lastRatingDelta: lastMatch
@@ -310,7 +350,7 @@ export default async function (fastify: ServerInstance) {
           lastMatchAt: lastMatch ? lastMatch.createdAt.toISOString() : null,
         }),
       });
-    }
+    },
   );
 
   fastify.get(
@@ -355,14 +395,16 @@ export default async function (fastify: ServerInstance) {
             update: {
               imageUrl: icon.imageUrl,
               rarity: icon.rarity,
+              displayNumber: icon.displayNumber,
             },
             create: {
               id: icon.id,
               imageUrl: icon.imageUrl,
               rarity: icon.rarity,
+              displayNumber: icon.displayNumber,
             },
-          })
-        )
+          }),
+        ),
       );
 
       // デフォルトアイコンのみは必ず所持扱いにする（自己修復）
@@ -406,6 +448,7 @@ export default async function (fastify: ServerInstance) {
           id: x.icon.id,
           imageUrl: normalizeIconImageUrl(x.icon.imageUrl),
           rarity: x.icon.rarity,
+          displayNumber: x.icon.displayNumber,
         })),
         messages: messages.map((x) => ({
           id: x.message.id,
@@ -426,7 +469,7 @@ export default async function (fastify: ServerInstance) {
           rarity: x.item.rarity,
         })),
       });
-    }
+    },
   );
 
   fastify.get(
@@ -463,20 +506,30 @@ export default async function (fastify: ServerInstance) {
         ICON_CATALOG.map((icon) =>
           prisma.iconMaster.upsert({
             where: { id: icon.id },
-            update: { imageUrl: icon.imageUrl, rarity: icon.rarity },
+            update: {
+              imageUrl: icon.imageUrl,
+              rarity: icon.rarity,
+              displayNumber: icon.displayNumber,
+            },
             create: {
               id: icon.id,
               imageUrl: icon.imageUrl,
               rarity: icon.rarity,
+              displayNumber: icon.displayNumber,
             },
-          })
-        )
+          }),
+        ),
       );
 
       const [all, owned] = await Promise.all([
         prisma.iconMaster.findMany({
-          select: { id: true, imageUrl: true, rarity: true },
-          orderBy: [{ rarity: "asc" }, { id: "asc" }],
+          select: {
+            id: true,
+            imageUrl: true,
+            rarity: true,
+            displayNumber: true,
+          },
+          orderBy: { displayNumber: "asc" },
         }),
         prisma.userIcon.findMany({
           where: { userId: payload.userId },
@@ -491,10 +544,11 @@ export default async function (fastify: ServerInstance) {
           id: x.id,
           imageUrl: normalizeIconImageUrl(x.imageUrl),
           rarity: x.rarity,
+          displayNumber: x.displayNumber,
           owned: ownedSet.has(x.id),
         })),
       });
-    }
+    },
   );
 
   fastify.get(
@@ -547,7 +601,7 @@ export default async function (fastify: ServerInstance) {
           owned: ownedSet.has(x.id),
         })),
       });
-    }
+    },
   );
 
   fastify.get(
@@ -601,6 +655,6 @@ export default async function (fastify: ServerInstance) {
           owned: ownedSet.has(x.id),
         })),
       });
-    }
+    },
   );
 }

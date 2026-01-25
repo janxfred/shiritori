@@ -7,7 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../api/game_api.dart';
 import '../models/game_models.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/api/api_client.dart';
 import '../../present/api/present_api.dart';
+import '../../account/api/me_api.dart';
+import '../../account/models/me_models.dart';
 
 /// 制限時間（ミリ秒）: 40秒
 const int timeLimitMs = 40 * 1000;
@@ -16,6 +19,7 @@ const int timeLimitMs = 40 * 1000;
 const int aiResponseDelayMs = 2000;
 
 final presentApiProvider = Provider<PresentApi>((ref) => PresentApi());
+final meApiProvider = Provider<MeApi>((ref) => MeApi());
 
 class GamePage extends ConsumerStatefulWidget {
   const GamePage({super.key});
@@ -33,7 +37,7 @@ class _GamePageState extends ConsumerState<GamePage>
   final ValueNotifier<int> _remainingTimeMs = ValueNotifier<int>(timeLimitMs);
 
   // ゲーム状態
-  GamePhase _phase = GamePhase.title;
+  GamePhase _phase = GamePhase.home;
   GameSession? _session;
   String _demonMessage = '';
   bool _isSubmitting = false;
@@ -61,6 +65,11 @@ class _GamePageState extends ConsumerState<GamePage>
   // プレゼント未受け取り数
   int _unclaimedPresentCount = 0;
 
+  // 自分の装備情報
+  String? _myIconUrl;
+  String? _myMessage;
+  String? _myTitle;
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +84,7 @@ class _GamePageState extends ConsumerState<GamePage>
     _loadBannerAd();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchUnclaimedPresentCount();
+      _loadMyEquipment();
     });
   }
 
@@ -92,6 +102,61 @@ class _GamePageState extends ConsumerState<GamePage>
     } catch (_) {
       // エラー時は無視
     }
+  }
+
+  /// 自分の装備情報を取得
+  Future<void> _loadMyEquipment() async {
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null) return;
+
+    try {
+      final meApi = ref.read(meApiProvider);
+      final inventory = await meApi.getInventory(token: session.token);
+      if (!mounted) return;
+
+      // 装備中のアイコンURLを取得
+      final equippedIcon = inventory.icons.firstWhere(
+        (icon) => icon.id == inventory.equipped.iconId,
+        orElse: () => inventory.icons.first,
+      );
+
+      // 装備中のメッセージを取得
+      final equippedMessage = inventory.messages.firstWhere(
+        (msg) => msg.id == inventory.equipped.messageId,
+        orElse: () => inventory.messages.first,
+      );
+
+      // 装備中の称号を取得
+      String? titleName;
+      if (inventory.equipped.title1Id != null) {
+        final title = inventory.titles.firstWhere(
+          (t) => t.id == inventory.equipped.title1Id,
+          orElse: () => inventory.titles.first,
+        );
+        titleName = title.name;
+      }
+
+      setState(() {
+        _myIconUrl = _resolveImageUrl(equippedIcon.imageUrl);
+        _myMessage = equippedMessage.content;
+        _myTitle = titleName;
+      });
+    } catch (e) {
+      debugPrint('装備情報の取得に失敗: $e');
+    }
+  }
+
+  String _resolveImageUrl(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/')) {
+      final base = ApiClient().dio.options.baseUrl;
+      return Uri.parse(base).resolve(trimmed).toString();
+    }
+    return trimmed;
   }
 
   /// バナー広告をロード
@@ -129,7 +194,7 @@ class _GamePageState extends ConsumerState<GamePage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // タイトル画面/未開始は通知しない
+    // ホーム画面/未開始は通知しない
     if (_session == null) return;
     // 既に終了している場合も通知しない
     if ((_session?.status ?? GameStatus.playing) != GameStatus.playing) return;
@@ -384,7 +449,7 @@ class _GamePageState extends ConsumerState<GamePage>
     // 認証状態が変わった時にプレゼント数を更新
     ref.listen(authControllerProvider, (_, next) {
       final session = next.valueOrNull;
-      if (session != null && _phase == GamePhase.title) {
+      if (session != null && _phase == GamePhase.home) {
         _fetchUnclaimedPresentCount();
       }
     });
@@ -406,22 +471,22 @@ class _GamePageState extends ConsumerState<GamePage>
               child: Stack(
                 children: [
                   switch (_phase) {
-                    GamePhase.title => _buildTitleScreen(),
+                    GamePhase.home => _buildHomeScreen(),
                     GamePhase.playing => _buildGameScreen(),
                     GamePhase.overtimeAnnounce => _buildOvertimeAnnounce(),
                     GamePhase.gameOver => _buildGameScreen(), // ゲームオーバー時も背景はゲーム画面
                   },
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: IconButton(
-                      tooltip: 'アカウント設定',
-                      onPressed: () => context.push('/account'),
-                      icon: const Icon(Icons.settings),
-                      color: const Color(0xFFD4AF37),
+                  if (_phase == GamePhase.home) ...[
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton(
+                        tooltip: 'アカウント設定',
+                        onPressed: () => context.push('/account'),
+                        icon: const Icon(Icons.settings),
+                        color: const Color(0xFFD4AF37),
+                      ),
                     ),
-                  ),
-                  if (_phase == GamePhase.title) ...[
                     Positioned(
                       top: 8,
                       left: 8,
@@ -486,8 +551,8 @@ class _GamePageState extends ConsumerState<GamePage>
     );
   }
 
-  /// タイトル画面
-  Widget _buildTitleScreen() {
+  /// ホーム画面
+  Widget _buildHomeScreen() {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -745,10 +810,15 @@ class _GamePageState extends ConsumerState<GamePage>
 
   /// ゲーム画面
   Widget _buildGameScreen() {
+    final session = ref.watch(authControllerProvider).valueOrNull;
+    
     return Column(
       children: [
         // 上部: 悪魔の顔と台詞 + 残り時間
         _buildDemonHeader(),
+        
+        // 対戦者情報エリア（AI vs プレイヤー）
+        if (session != null) _buildBattleInfo(session),
         
         // 中部: 確保文字エリア
         _buildCapturedCharsArea(),
@@ -836,6 +906,224 @@ class _GamePageState extends ConsumerState<GamePage>
     );
   }
 
+  /// 対戦者情報表示エリア（AI vs プレイヤー）
+  Widget _buildBattleInfo(dynamic session) {
+    // AI（悪魔）の情報
+    const aiIconPath = 'assets/悪魔.jpg';
+    const aiMessage = 'よろしくお願いします';
+    final aiTitle = '悪魔 ${_getLevelName(_selectedLevel)}';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D2D2D),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[800]!),
+        ),
+      ),
+      child: Row(
+        children: [
+          // プレイヤー（自分）の情報
+          Expanded(
+            child: _buildPlayerCard(
+              iconWidget: _myIconUrl == null
+                  ? Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[700],
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.person, color: Colors.white, size: 28),
+                    )
+                  : ClipOval(
+                      child: Image.network(
+                        _myIconUrl!,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 48,
+                          height: 48,
+                          color: Colors.grey[700],
+                          child: const Icon(Icons.person, color: Colors.white, size: 28),
+                        ),
+                      ),
+                    ),
+              message: _myMessage ?? '',
+              title: _myTitle ?? '',
+              isOpponent: false,
+            ),
+          ),
+          const SizedBox(width: 16),
+          // VS表示
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.red[900],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red[700]!),
+            ),
+            child: const Text(
+              'VS',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // AI（相手）の情報
+          Expanded(
+            child: _buildPlayerCard(
+              iconWidget: ClipOval(
+                child: Image.asset(
+                  aiIconPath,
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              message: aiMessage,
+              title: aiTitle,
+              isOpponent: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// プレイヤーカード（アイコン、メッセージ、称号）
+  Widget _buildPlayerCard({
+    required Widget iconWidget,
+    required String message,
+    required String title,
+    required bool isOpponent,
+  }) {
+    return Column(
+      children: [
+        // アイコン
+        Container(
+          width: 48,
+          height: 48,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+          ),
+          child: iconWidget,
+        ),
+        const SizedBox(height: 8),
+        // メッセージ
+        Text(
+          message,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        // 称号
+        Text(
+          title,
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: 10,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  /// プレイヤー情報表示エリア（旧実装 - 削除予定）
+  Widget _buildPlayerInfo(dynamic session) {
+    // AuthUserから装備情報を取得（将来的にバックエンドで対応予定）
+    final iconUrl = session.user.iconId ?? 'default_demon';
+    final message = 'よろしくお願いします'; // session.user.equippedMessage
+    final title = session.user.name; // session.user.equippedTitle1?.name
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D2D2D),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[800]!),
+        ),
+      ),
+      child: Row(
+        children: [
+          // ユーザーのアイコン
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+            ),
+            child: ClipOval(
+              child: iconUrl.startsWith('http') || iconUrl.startsWith('/')
+                  ? Image.network(
+                      _resolveImageUrl(
+                        iconUrl.startsWith('/')
+                            ? iconUrl
+                            : '/static/$iconUrl.jpg',
+                      ),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.grey[700],
+                        child: const Icon(Icons.person, color: Colors.white, size: 28),
+                      ),
+                    )
+                  : Image.network(
+                      _resolveImageUrl('/static/$iconUrl.jpg'),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.grey[700],
+                        child: const Icon(Icons.person, color: Colors.white, size: 28),
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // メッセージと称号を縦並び
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // メッセージ
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                // 称号とユーザー名
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// 確保文字エリア
   Widget _buildCapturedCharsArea() {
     final playerChars = _session?.playerCapturedChars ?? [];
@@ -912,7 +1200,7 @@ class _GamePageState extends ConsumerState<GamePage>
     if (history.isEmpty) {
       return Center(
         child: Text(
-          'しりとりを始めましょう',
+          'しりとりを始めようぞ！',
           style: TextStyle(color: Colors.grey[600]),
         ),
       );
@@ -1003,14 +1291,14 @@ class _GamePageState extends ConsumerState<GamePage>
                   ),
                 ),
               ),
-            // タイトルに戻るボタン
+            // ホームに戻るボタン
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () {
                   _timer?.cancel();
                   setState(() {
-                    _phase = GamePhase.title;
+                    _phase = GamePhase.home;
                     _session = null;
                     _showGameOverModal = false;
                   });
@@ -1021,7 +1309,7 @@ class _GamePageState extends ConsumerState<GamePage>
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(
-                  'タイトルに戻る',
+                  'ホームに戻る',
                   style: TextStyle(color: Colors.grey[500], fontSize: 12),
                 ),
               ),
@@ -1266,7 +1554,7 @@ class _GamePageState extends ConsumerState<GamePage>
 
 /// ゲームフェーズ
 enum GamePhase {
-  title,
+  home,
   playing,
   overtimeAnnounce,
   gameOver,

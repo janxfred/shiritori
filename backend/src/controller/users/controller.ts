@@ -39,6 +39,7 @@ async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
       id: "default_demon",
       imageUrl: DEFAULT_ICON_URL,
       rarity: 1,
+      displayNumber: 1,
     },
   });
 
@@ -108,7 +109,7 @@ export default async function (fastify: ServerInstance) {
       });
 
       return reply.send(response);
-    }
+    },
   );
 
   fastify.post(
@@ -164,6 +165,6 @@ export default async function (fastify: ServerInstance) {
       });
 
       return reply.status(201).send({ message: "ユーザーを作成しました" });
-    }
+    },
   );
 }

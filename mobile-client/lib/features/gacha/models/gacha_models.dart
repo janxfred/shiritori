@@ -49,18 +49,21 @@ class GachaIconRateEntry extends GachaRateEntry {
     required this.id,
     required this.imageUrl,
     required this.rarity,
+    required this.displayNumber,
     required super.probability,
   });
 
   final String id;
   final String imageUrl;
   final int rarity;
+  final int displayNumber;
 
   factory GachaIconRateEntry.fromJson(Map<String, dynamic> json) {
     return GachaIconRateEntry(
       id: json['id'] as String,
       imageUrl: json['imageUrl'] as String,
       rarity: (json['rarity'] as num).toInt(),
+      displayNumber: (json['displayNumber'] as num).toInt(),
       probability: (json['probability'] as num).toDouble(),
     );
   }
@@ -194,17 +197,20 @@ class GachaIconReward extends GachaReward {
     required this.id,
     required this.imageUrl,
     required this.rarity,
+    required this.displayNumber,
   });
 
   final String id;
   final String imageUrl;
   final int rarity;
+  final int displayNumber;
 
   factory GachaIconReward.fromJson(Map<String, dynamic> json) {
     return GachaIconReward(
       id: json['id'] as String,
       imageUrl: json['imageUrl'] as String,
       rarity: (json['rarity'] as num).toInt(),
+      displayNumber: (json['displayNumber'] as num).toInt(),
     );
   }
 

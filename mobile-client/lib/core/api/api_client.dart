@@ -99,4 +99,11 @@ class ApiClient {
   void setBaseUrl(String url) {
     _dio.options.baseUrl = url;
   }
+
+  /// Bearer認証用のOptionsを生成
+  static Options authorizedOptions({required String token}) {
+    return Options(
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
 }

@@ -36,6 +36,14 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        
+        // 64ビットデバイス（Pixel 6a, 8 Pro, 9 Pro XL等）への対応
+        ndk {
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
+        }
+        
+        // MultiDex有効化（メソッド数64K超過対策）
+        multiDexEnabled = true
     }
 
     signingConfigs {

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/widgets/banner_ad_widget.dart';
 import '../../../core/api/api_client.dart';
 import '../api/gacha_api.dart';
 import '../models/gacha_models.dart';
@@ -176,28 +177,31 @@ class _GachaPageState extends ConsumerState<GachaPage> {
           final cost = status?.cost;
           final rates = status?.rates ?? const <GachaRateEntry>[];
 
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Card(
-                  child: Padding(
+          return Column(
+            children: [
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: ListView(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('所持コイン: $coins'),
-                        const SizedBox(height: 8),
-                        Text('必要コイン: ${cost ?? '-'}'),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _busy ? null : _draw,
-                            child: Text(_busy ? '召喚中…' : '召喚する'),
-                          ),
-                        ),
+                    children: [
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('所持コイン: $coins'),
+                              const SizedBox(height: 8),
+                              Text('必要コイン: ${cost ?? '-'}'),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: _busy ? null : _draw,
+                                  child: Text(_busy ? '召喚中…' : '召喚する'),
+                                ),
+                              ),
                       ],
                     ),
                   ),
@@ -222,7 +226,7 @@ class _GachaPageState extends ConsumerState<GachaPage> {
                           ...rates.map((e) {
                             final percent = (e.probability * 100).clamp(0, 100);
                             final label = switch (e) {
-                              final GachaIconRateEntry r => 'アイコン（★${r.rarity}）',
+                              final GachaIconRateEntry r => 'アイコンNo.${r.displayNumber}（★${r.rarity}）',
                               final GachaMessageRateEntry r => 'メッセージ（★${r.rarity}） ${r.content}',
                               final GachaTitleRateEntry r => '称号 ${r.name}',
                               final GachaItemRateEntry r => 'アイテム（★${r.rarity}） ${r.name}',
@@ -266,8 +270,12 @@ class _GachaPageState extends ConsumerState<GachaPage> {
                     child: Text('ここに召喚結果が表示されます'),
                   ),
                 ],
-              ],
-            ),
+                    ],
+                  ),
+                ),
+              ),
+              BannerAdWidget(isSubscriber: session.user.isSubscriber),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

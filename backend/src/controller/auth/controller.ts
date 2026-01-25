@@ -1,6 +1,9 @@
 import bcrypt from "bcryptjs";
 import { getPrisma, isDatabaseConfigured } from "../../database";
-import { checkCoinsTitles, checkLoginStreakTitles } from "../../domain/services/TitleAchievementService";
+import {
+  checkCoinsTitles,
+  checkLoginStreakTitles,
+} from "../../domain/services/TitleAchievementService";
 import { signAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
 import { ICON_CATALOG } from "../../lib/icon_catalog";
@@ -14,7 +17,8 @@ import {
   signupResponseSchema,
 } from "./schema";
 
-const LOGIN_BONUS_COINS = 3;
+const LOGIN_BONUS_COINS_FREE = 3;
+const LOGIN_BONUS_COINS_PREMIUM = 20;
 const LOGIN_BONUS_INTERVAL_HOURS = 24;
 
 async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
@@ -23,10 +27,19 @@ async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
     ICON_CATALOG.map((icon) =>
       prisma.iconMaster.upsert({
         where: { id: icon.id },
-        update: { imageUrl: icon.imageUrl, rarity: icon.rarity },
-        create: { id: icon.id, imageUrl: icon.imageUrl, rarity: icon.rarity },
-      })
-    )
+        update: {
+          imageUrl: icon.imageUrl,
+          rarity: icon.rarity,
+          displayNumber: icon.displayNumber,
+        },
+        create: {
+          id: icon.id,
+          imageUrl: icon.imageUrl,
+          rarity: icon.rarity,
+          displayNumber: icon.displayNumber,
+        },
+      }),
+    ),
   );
 
   // メッセージマスタ
@@ -34,10 +47,19 @@ async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
     MESSAGE_CATALOG.map((msg) =>
       prisma.messageMaster.upsert({
         where: { id: msg.id },
-        update: { content: msg.content, condition: msg.condition, rarity: msg.rarity },
-        create: { id: msg.id, content: msg.content, condition: msg.condition, rarity: msg.rarity },
-      })
-    )
+        update: {
+          content: msg.content,
+          condition: msg.condition,
+          rarity: msg.rarity,
+        },
+        create: {
+          id: msg.id,
+          content: msg.content,
+          condition: msg.condition,
+          rarity: msg.rarity,
+        },
+      }),
+    ),
   );
 
   // 称号マスタ
@@ -45,10 +67,19 @@ async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
     TITLE_CATALOG.map((title) =>
       prisma.title.upsert({
         where: { id: title.id },
-        update: { name: title.name, description: title.description, condition: title.condition },
-        create: { id: title.id, name: title.name, description: title.description, condition: title.condition },
-      })
-    )
+        update: {
+          name: title.name,
+          description: title.description,
+          condition: title.condition,
+        },
+        create: {
+          id: title.id,
+          name: title.name,
+          description: title.description,
+          condition: title.condition,
+        },
+      }),
+    ),
   );
 
   // デフォルト称号（新米の契約者）
@@ -112,7 +143,7 @@ function formatAuthUser(user: {
 
 async function findLoginUser(
   prisma: ReturnType<typeof getPrisma>,
-  identifier: string
+  identifier: string,
 ) {
   // 1) internal id (uuid)
   const byId = await prisma.user.findUnique({ where: { id: identifier } });
@@ -171,24 +202,53 @@ export default async function (fastify: ServerInstance) {
       const { name, password } = request.body;
       const passwordHash = await bcrypt.hash(password, 10);
 
-      const user = await prisma.user.create({
-        data: {
-          name,
-          passwordHash,
-          title1Id: "title_main_01",
-          stats: { create: {} },
-          ownedIcons: { create: { iconId: "default_demon" } },
-          ownedMessages: { create: { messageId: "msg_default_01" } },
-          ownedTitles: { create: { titleId: "title_main_01" } },
-        },
+      const now = new Date();
+
+      const user = await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            name,
+            passwordHash,
+            title1Id: "title_main_01",
+            lastLoginAt: now,
+            stats: { create: {} },
+            ownedIcons: { create: { iconId: "default_demon" } },
+            ownedMessages: { create: { messageId: "msg_default_01" } },
+            ownedTitles: { create: { titleId: "title_main_01" } },
+          },
+        });
+
+        // 新規登録時もログインボーナスをプレゼントボックスに追加
+        const bonusAmount = newUser.isSubscriber
+          ? LOGIN_BONUS_COINS_PREMIUM
+          : LOGIN_BONUS_COINS_FREE;
+        await tx.presentBox.create({
+          data: {
+            userId: newUser.id,
+            type: "coin",
+            amount: bonusAmount,
+            description: "ログインボーナス",
+          },
+        });
+
+        // lastLoginBonusAtを設定（次回ログイン時は24時間後まで付与されない）
+        await tx.user.update({
+          where: { id: newUser.id },
+          data: { lastLoginBonusAt: now },
+        });
+
+        return newUser;
       });
 
+      const bonusAmount = user.isSubscriber
+        ? LOGIN_BONUS_COINS_PREMIUM
+        : LOGIN_BONUS_COINS_FREE;
       return reply.status(201).send({
-        message: "アカウントを作成しました",
+        message: `アカウントを作成しました（ログインボーナス${bonusAmount}コインをプレゼントボックスに追加しました）`,
         token: signAuthToken({ userId: user.id }),
         user: formatAuthUser(user),
       });
-    }
+    },
   );
 
   fastify.post(
@@ -246,11 +306,14 @@ export default async function (fastify: ServerInstance) {
 
         if (hoursSinceLastBonus >= LOGIN_BONUS_INTERVAL_HOURS) {
           // ログインボーナスをプレゼントボックスに追加
+          const bonusAmount = user.isSubscriber
+            ? LOGIN_BONUS_COINS_PREMIUM
+            : LOGIN_BONUS_COINS_FREE;
           await tx.presentBox.create({
             data: {
               userId: user.id,
               type: "coin",
-              amount: LOGIN_BONUS_COINS,
+              amount: bonusAmount,
               description: "ログインボーナス",
             },
           });
@@ -264,7 +327,11 @@ export default async function (fastify: ServerInstance) {
           create: { userId: user.id },
         });
 
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const today = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+        );
         const lastLoginDate = stats.lastLoginDate;
         let newConsecutiveLoginDays = stats.consecutiveLoginDays;
 
@@ -272,10 +339,10 @@ export default async function (fastify: ServerInstance) {
           const lastDate = new Date(
             lastLoginDate.getFullYear(),
             lastLoginDate.getMonth(),
-            lastLoginDate.getDate()
+            lastLoginDate.getDate(),
           );
           const daysDiff = Math.floor(
-            (today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)
+            (today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24),
           );
 
           if (daysDiff === 1) {
@@ -314,8 +381,11 @@ export default async function (fastify: ServerInstance) {
         return updatedUser;
       });
 
+      const bonusAmount = updated.isSubscriber
+        ? LOGIN_BONUS_COINS_PREMIUM
+        : LOGIN_BONUS_COINS_FREE;
       const message = loginBonusGranted
-        ? `ログインしました（ログインボーナス${LOGIN_BONUS_COINS}コインをプレゼントボックスに追加しました）`
+        ? `ログインしました（ログインボーナス${bonusAmount}コインをプレゼントボックスに追加しました）`
         : "ログインしました";
 
       return reply.send({
@@ -323,6 +393,6 @@ export default async function (fastify: ServerInstance) {
         token: signAuthToken({ userId: updated.id }),
         user: formatAuthUser(updated),
       });
-    }
+    },
   );
 }
