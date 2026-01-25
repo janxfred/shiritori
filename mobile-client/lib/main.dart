@@ -24,30 +24,53 @@ import 'features/present/pages/present_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // エラーハンドリング強化（起動を妨げないようにする）
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    // Pixelデバイス等でのエラーを表示（開発用）
+    debugPrint('Flutter Error: ${details.exception}');
+    debugPrint('Stack: ${details.stack}');
+  };
+
   try {
     await dotenv.load(fileName: '.env');
-  } catch (_) {
+    debugPrint('✓ .env loaded');
+  } catch (e) {
+    debugPrint('⚠ .env not found: $e');
     // `.env` が無い場合でも起動できるようにする（デフォルトURLへフォールバック）
   }
 
   try {
     await dotenv.load(fileName: '.env.local', mergeWith: dotenv.env);
-  } catch (_) {
+    debugPrint('✓ .env.local loaded');
+  } catch (e) {
+    debugPrint('⚠ .env.local not found: $e');
     // 開発者ローカルの上書き用（任意）
   }
 
   // RevenueCat初期化（Play Console制限解除用の最小実装）
-  // TODO: 実際の課金実装時にAPIキーを設定
+  // エラーがあっても起動を継続するように改善
   try {
     await Purchases.configure(
       PurchasesConfiguration('goog_erLlGbZLjiJzdJplicLuSKgaHSs')
         ..appUserID = null,
     );
-  } catch (_) {
+    debugPrint('✓ RevenueCat initialized');
+  } catch (e, stackTrace) {
     // 初期化エラーは無視（開発環境では有効なAPIキーがない）
+    debugPrint('⚠ RevenueCat initialization failed: $e');
+    debugPrint('Stack: $stackTrace');
   }
 
-  MobileAds.instance.initialize();
+  // Google Mobile Ads初期化をtry-catchで囲む
+  try {
+    await MobileAds.instance.initialize();
+    debugPrint('✓ Google Mobile Ads initialized');
+  } catch (e, stackTrace) {
+    debugPrint('⚠ Google Mobile Ads initialization failed: $e');
+    debugPrint('Stack: $stackTrace');
+  }
+
   runApp(const ProviderScope(child: MyApp()));
 }
 
