@@ -137,7 +137,7 @@ class _PresentPageState extends ConsumerState<PresentPage> {
           // プレゼント一覧を更新してから遷移
           await _refresh();
           if (mounted) {
-            context.go('/'); // ホーム画面へ遷移
+            context.pop(); // ホーム画面へ戻る
           }
         }
       }

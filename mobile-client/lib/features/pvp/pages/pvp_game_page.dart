@@ -51,6 +51,11 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
   PvpOpponent? _opponent;
   PvpRated? _rated;
 
+  // 自分の装備情報
+  String? _myIconUrl;
+  String? _myMessage;
+  String? _myTitle;
+
   final _wordController = TextEditingController();
 
   @override
@@ -71,6 +76,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startBattleIntroIfNeeded();
+      _loadMyEquipment();
       _refresh();
       _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     });
@@ -111,6 +117,48 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
       ),
     );
     _bannerAd!.load();
+  }
+
+  /// 自分の装備情報を取得
+  Future<void> _loadMyEquipment() async {
+    final auth = ref.read(authControllerProvider).valueOrNull;
+    if (auth == null) return;
+
+    try {
+      final meApi = MeApi();
+      final inventory = await meApi.getInventory(token: auth.token);
+      if (!mounted) return;
+
+      // 装備中のアイコンURLを取得
+      final equippedIcon = inventory.icons.firstWhere(
+        (icon) => icon.id == inventory.equipped.iconId,
+        orElse: () => inventory.icons.first,
+      );
+
+      // 装備中のメッセージを取得
+      final equippedMessage = inventory.messages.firstWhere(
+        (msg) => msg.id == inventory.equipped.messageId,
+        orElse: () => inventory.messages.first,
+      );
+
+      // 装備中の称号を取得
+      String? titleName;
+      if (inventory.equipped.title1Id != null) {
+        final title = inventory.titles.firstWhere(
+          (t) => t.id == inventory.equipped.title1Id,
+          orElse: () => inventory.titles.first,
+        );
+        titleName = title.name;
+      }
+
+      setState(() {
+        _myIconUrl = _resolveImageUrl(equippedIcon.imageUrl);
+        _myMessage = equippedMessage.content;
+        _myTitle = titleName;
+      });
+    } catch (e) {
+      debugPrint('装備情報の取得に失敗: $e');
+    }
   }
 
   void _updateSession(PvpSession session, {required String myUserId}) {
@@ -426,7 +474,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                     children: [
                       Column(
                         children: [
-                    // 上部: 相手アイコン + 称号(メッセージ扱い) + 残り時間
+                    // 上部: 残り時間
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -435,82 +483,40 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                           bottom: BorderSide(color: Colors.grey[800]!),
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(40),
-                            child: opponent == null
-                                ? Container(
-                                    width: 80,
-                                    height: 80,
-                                    color: Colors.grey[800],
-                                  )
-                                : Image.network(
-                                    opponentIconUrl!,
-                                    width: 80,
-                                    height: 80,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        width: 80,
-                                        height: 80,
-                                        color: Colors.grey[800],
-                                      );
-                                    },
+                      child: Center(
+                        child: ValueListenableBuilder<int>(
+                          valueListenable: _remainingTimeMs,
+                          builder: (context, remainingMs, _) {
+                            // ターン制限40秒想定: 残り10秒を警告
+                            final isLowTime = remainingMs < 10000;
+                            return Column(
+                              children: [
+                                Text(
+                                  _formatTime(remainingMs),
+                                  style: TextStyle(
+                                    color: isLowTime
+                                        ? Colors.red
+                                        : const Color(0xFFD4AF37),
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E1E1E),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey[700]!),
-                              ),
-                              child: Text(
-                                opponent?.messageContent ?? '',
-                                style: TextStyle(
-                                  color: Colors.grey[300],
-                                  fontSize: 14,
                                 ),
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          ValueListenableBuilder<int>(
-                            valueListenable: _remainingTimeMs,
-                            builder: (context, remainingMs, _) {
-                              // ターン制限40秒想定: 残り10秒を警告
-                              final isLowTime = remainingMs < 10000;
-                              return Column(
-                                children: [
-                                  Text(
-                                    _formatTime(remainingMs),
-                                    style: TextStyle(
-                                      color: isLowTime
-                                          ? Colors.red
-                                          : const Color(0xFFD4AF37),
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                Text(
+                                  'R${session.roundCount}/${session.maxRounds}',
+                                  style: TextStyle(
+                                    color: Colors.grey[500],
+                                    fontSize: 12,
                                   ),
-                                  Text(
-                                    'R${session.roundCount}/${session.maxRounds}',
-                                    style: TextStyle(
-                                      color: Colors.grey[500],
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
+
+                    // 対戦者情報エリア（相手 vs 自分）
+                    _buildBattleInfo(opponent: opponent, myUserId: auth.user.id),
 
                     // 中部: 確保文字
                     Container(
@@ -997,6 +1003,132 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
           ),
         ],
       ),
+    );
+  }
+
+  /// 対戦者情報表示エリア（相手 vs 自分）
+  Widget _buildBattleInfo({
+    required PvpOpponent? opponent,
+    required String myUserId,
+  }) {
+    // 相手の情報
+    final opponentIconUrl = opponent == null ? null : _resolveImageUrl(opponent.iconImageUrl);
+    final opponentMessage = opponent?.messageContent ?? '';
+    final opponentTitle = opponent?.titleName ?? '';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D2D2D),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[800]!),
+        ),
+      ),
+      child: Row(
+        children: [
+          // 自分の情報
+          Expanded(
+            child: _buildPlayerCard(
+              iconUrl: _myIconUrl,
+              message: _myMessage ?? '',
+              title: _myTitle ?? '',
+            ),
+          ),
+          const SizedBox(width: 16),
+          // VS表示
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.red[900],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red[700]!),
+            ),
+            child: const Text(
+              'VS',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // 相手の情報
+          Expanded(
+            child: _buildPlayerCard(
+              iconUrl: opponentIconUrl,
+              message: opponentMessage,
+              title: opponentTitle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// プレイヤーカード（アイコン、メッセージ、称号）
+  Widget _buildPlayerCard({
+    required String? iconUrl,
+    required String message,
+    required String title,
+  }) {
+    return Column(
+      children: [
+        // アイコン
+        Container(
+          width: 48,
+          height: 48,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+          ),
+          child: ClipOval(
+            child: iconUrl == null
+                ? Container(
+                    width: 48,
+                    height: 48,
+                    color: Colors.grey[700],
+                    child: const Icon(Icons.person, color: Colors.white, size: 28),
+                  )
+                : Image.network(
+                    iconUrl,
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 48,
+                      height: 48,
+                      color: Colors.grey[700],
+                      child: const Icon(Icons.person, color: Colors.white, size: 28),
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // メッセージ
+        Text(
+          message,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        // 称号
+        if (title.isNotEmpty)
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 10,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+      ],
     );
   }
 }

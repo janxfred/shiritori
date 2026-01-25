@@ -9,6 +9,8 @@ import '../models/game_models.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/api/api_client.dart';
 import '../../present/api/present_api.dart';
+import '../../account/api/me_api.dart';
+import '../../account/models/me_models.dart';
 
 /// 制限時間（ミリ秒）: 40秒
 const int timeLimitMs = 40 * 1000;
@@ -17,6 +19,7 @@ const int timeLimitMs = 40 * 1000;
 const int aiResponseDelayMs = 2000;
 
 final presentApiProvider = Provider<PresentApi>((ref) => PresentApi());
+final meApiProvider = Provider<MeApi>((ref) => MeApi());
 
 class GamePage extends ConsumerStatefulWidget {
   const GamePage({super.key});
@@ -62,6 +65,11 @@ class _GamePageState extends ConsumerState<GamePage>
   // プレゼント未受け取り数
   int _unclaimedPresentCount = 0;
 
+  // 自分の装備情報
+  String? _myIconUrl;
+  String? _myMessage;
+  String? _myTitle;
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +84,7 @@ class _GamePageState extends ConsumerState<GamePage>
     _loadBannerAd();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchUnclaimedPresentCount();
+      _loadMyEquipment();
     });
   }
 
@@ -92,6 +101,48 @@ class _GamePageState extends ConsumerState<GamePage>
       });
     } catch (_) {
       // エラー時は無視
+    }
+  }
+
+  /// 自分の装備情報を取得
+  Future<void> _loadMyEquipment() async {
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null) return;
+
+    try {
+      final meApi = ref.read(meApiProvider);
+      final inventory = await meApi.getInventory(token: session.token);
+      if (!mounted) return;
+
+      // 装備中のアイコンURLを取得
+      final equippedIcon = inventory.icons.firstWhere(
+        (icon) => icon.id == inventory.equipped.iconId,
+        orElse: () => inventory.icons.first,
+      );
+
+      // 装備中のメッセージを取得
+      final equippedMessage = inventory.messages.firstWhere(
+        (msg) => msg.id == inventory.equipped.messageId,
+        orElse: () => inventory.messages.first,
+      );
+
+      // 装備中の称号を取得
+      String? titleName;
+      if (inventory.equipped.title1Id != null) {
+        final title = inventory.titles.firstWhere(
+          (t) => t.id == inventory.equipped.title1Id,
+          orElse: () => inventory.titles.first,
+        );
+        titleName = title.name;
+      }
+
+      setState(() {
+        _myIconUrl = _resolveImageUrl(equippedIcon.imageUrl);
+        _myMessage = equippedMessage.content;
+        _myTitle = titleName;
+      });
+    } catch (e) {
+      debugPrint('装備情報の取得に失敗: $e');
     }
   }
 
@@ -766,8 +817,8 @@ class _GamePageState extends ConsumerState<GamePage>
         // 上部: 悪魔の顔と台詞 + 残り時間
         _buildDemonHeader(),
         
-        // ユーザー情報エリア
-        if (session != null) _buildPlayerInfo(session),
+        // 対戦者情報エリア（AI vs プレイヤー）
+        if (session != null) _buildBattleInfo(session),
         
         // 中部: 確保文字エリア
         _buildCapturedCharsArea(),
@@ -855,7 +906,142 @@ class _GamePageState extends ConsumerState<GamePage>
     );
   }
 
-  /// プレイヤー情報表示エリア
+  /// 対戦者情報表示エリア（AI vs プレイヤー）
+  Widget _buildBattleInfo(dynamic session) {
+    // AI（悪魔）の情報
+    const aiIconPath = 'assets/悪魔.jpg';
+    const aiMessage = 'よろしくお願いします';
+    final aiTitle = '悪魔 ${_getLevelName(_selectedLevel)}';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D2D2D),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[800]!),
+        ),
+      ),
+      child: Row(
+        children: [
+          // プレイヤー（自分）の情報
+          Expanded(
+            child: _buildPlayerCard(
+              iconWidget: _myIconUrl == null
+                  ? Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[700],
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.person, color: Colors.white, size: 28),
+                    )
+                  : ClipOval(
+                      child: Image.network(
+                        _myIconUrl!,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 48,
+                          height: 48,
+                          color: Colors.grey[700],
+                          child: const Icon(Icons.person, color: Colors.white, size: 28),
+                        ),
+                      ),
+                    ),
+              message: _myMessage ?? '',
+              title: _myTitle ?? '',
+              isOpponent: false,
+            ),
+          ),
+          const SizedBox(width: 16),
+          // VS表示
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.red[900],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red[700]!),
+            ),
+            child: const Text(
+              'VS',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // AI（相手）の情報
+          Expanded(
+            child: _buildPlayerCard(
+              iconWidget: ClipOval(
+                child: Image.asset(
+                  aiIconPath,
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              message: aiMessage,
+              title: aiTitle,
+              isOpponent: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// プレイヤーカード（アイコン、メッセージ、称号）
+  Widget _buildPlayerCard({
+    required Widget iconWidget,
+    required String message,
+    required String title,
+    required bool isOpponent,
+  }) {
+    return Column(
+      children: [
+        // アイコン
+        Container(
+          width: 48,
+          height: 48,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+          ),
+          child: iconWidget,
+        ),
+        const SizedBox(height: 8),
+        // メッセージ
+        Text(
+          message,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        // 称号
+        Text(
+          title,
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: 10,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  /// プレイヤー情報表示エリア（旧実装 - 削除予定）
   Widget _buildPlayerInfo(dynamic session) {
     // AuthUserから装備情報を取得（将来的にバックエンドで対応予定）
     final iconUrl = session.user.iconId ?? 'default_demon';

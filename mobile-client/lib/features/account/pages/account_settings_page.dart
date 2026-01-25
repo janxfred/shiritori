@@ -41,7 +41,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
   bool _purchasingSubscription = false;
 
   static const _rewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
-  static const _inquiryUrl = 'https://forms.gle/7UxDMHUEPPhiMpBH9';
+  static const _inquiryUrl = 'https://forms.gle/LPXFy4RXbQdV3LCg7';
   static const _subscriptionPackageIdentifier = 'premium_subscription:monthly-standard'; // Google Play StoreのProduct ID
 
   String _resolveImageUrl(String url) {
