@@ -626,16 +626,16 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                     ),
                         ],
                       ),
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: IconButton(
-                          tooltip: '戻る',
-                          onPressed: () => context.pop(),
-                          icon: const Icon(Icons.arrow_back),
-                          color: const Color(0xFFD4AF37),
-                        ),
-                      ),
+                      // Positioned(
+                      //   top: 8,
+                      //   left: 8,
+                      //   child: IconButton(
+                      //     tooltip: '戻る',
+                      //     onPressed: () => context.pop(),
+                      //     icon: const Icon(Icons.arrow_back),
+                      //     color: const Color(0xFFD4AF37),
+                      //   ),
+                      // ),
                       if (_rated != null)
                         Positioned(
                           top: 8,

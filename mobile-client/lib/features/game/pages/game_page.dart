@@ -1,8 +1,10 @@
 // 悪魔的しりとり ゲーム画面
 import 'dart:async';
+import 'dart:math' show cos, sin;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../api/game_api.dart';
 import '../models/game_models.dart';
@@ -57,6 +59,9 @@ class _GamePageState extends ConsumerState<GamePage>
   // アニメーション
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
+  late AnimationController _blinkController;
+  late Animation<double> _blinkAnimation;
+  late AnimationController _rotationController;
 
   // バナー広告
   BannerAd? _bannerAd;
@@ -81,6 +86,22 @@ class _GamePageState extends ConsumerState<GamePage>
     _shakeAnimation = Tween<double>(begin: 0, end: 10).animate(
       CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
     );
+    
+    // タイトル点滅用アニメーション
+    _blinkController = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    )..repeat(reverse: true);
+    _blinkAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _blinkController, curve: Curves.easeInOut),
+    );
+    
+    // 魔法陣回転用アニメーション
+    _rotationController = AnimationController(
+      duration: const Duration(seconds: 30),
+      vsync: this,
+    )..repeat();
+    
     _loadBannerAd();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchUnclaimedPresentCount();
@@ -188,6 +209,8 @@ class _GamePageState extends ConsumerState<GamePage>
     _historyScrollController.dispose();
     _remainingTimeMs.dispose();
     _shakeController.dispose();
+    _blinkController.dispose();
+    _rotationController.dispose();
     _bannerAd?.dispose();
     super.dispose();
   }
@@ -480,11 +503,35 @@ class _GamePageState extends ConsumerState<GamePage>
                     Positioned(
                       top: 8,
                       right: 8,
-                      child: IconButton(
-                        tooltip: 'アカウント設定',
-                        onPressed: () => context.push('/account'),
-                        icon: const Icon(Icons.settings),
-                        color: const Color(0xFFD4AF37),
+                      child: ref.watch(authControllerProvider).maybeWhen(
+                        data: (session) => session == null
+                            ? ElevatedButton.icon(
+                                onPressed: () => context.push('/account'),
+                                label: const Text('ログイン'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFD4AF37),
+                                  foregroundColor: Colors.black,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                              )
+                            : IconButton(
+                                tooltip: 'アカウント設定',
+                                onPressed: () => context.push('/account'),
+                                icon: const Icon(Icons.settings),
+                                color: const Color(0xFFD4AF37),
+                              ),
+                        orElse: () => IconButton(
+                          tooltip: 'アカウント設定',
+                          onPressed: () => context.push('/account'),
+                          icon: const Icon(Icons.settings),
+                          color: const Color(0xFFD4AF37),
+                        ),
                       ),
                     ),
                     Positioned(
@@ -553,53 +600,112 @@ class _GamePageState extends ConsumerState<GamePage>
 
   /// ホーム画面
   Widget _buildHomeScreen() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF1E1E1E), Color(0xFF3D0000)],
+    return Stack(
+      children: [
+        // 背景: グラデーション
+        Positioned.fill(
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF1E1E1E), Color(0xFF3D0000)],
+              ),
+            ),
+          ),
         ),
-      ),
-      child: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        '悪魔的',
-                        style: TextStyle(
-                          fontSize: 48,
-                          color: Color(0xFFD4AF37),
-                          fontWeight: FontWeight.bold,
+        
+        // 背景: 回転する魔法陣
+        Positioned.fill(
+          child: AnimatedBuilder(
+            animation: _rotationController,
+            builder: (context, child) {
+              return Transform.rotate(
+                angle: _rotationController.value * 2 * 3.14159,
+                child: Opacity(
+                  opacity: 0.15,
+                  child: CustomPaint(
+                    painter: MagicCirclePainter(),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        
+        // 前景: コンテンツ
+        SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // 点滅するタイトル
+                        AnimatedBuilder(
+                          animation: _blinkAnimation,
+                          builder: (context, child) {
+                            return Opacity(
+                              opacity: _blinkAnimation.value,
+                              child: child,
+                            );
+                          },
+                          child: Text(
+                            '悪魔的',
+                            style: GoogleFonts.notoSerifJp(
+                              fontSize: 48,
+                              color: const Color(0xFFD4AF37),
+                              fontWeight: FontWeight.bold,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 10.0,
+                                  color: Colors.black.withValues(alpha: 128),
+                                  offset: const Offset(2, 2),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                      const Text(
-                        'しりとり',
-                        style: TextStyle(
-                          fontSize: 48,
-                          color: Color(0xFFD4AF37),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 8,
+                        AnimatedBuilder(
+                          animation: _blinkAnimation,
+                          builder: (context, child) {
+                            return Opacity(
+                              opacity: _blinkAnimation.value,
+                              child: child,
+                            );
+                          },
+                          child: Text(
+                            'しりとり',
+                            style: GoogleFonts.notoSerifJp(
+                              fontSize: 48,
+                              color: const Color(0xFFD4AF37),
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 8,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 10.0,
+                                  color: Colors.black.withValues(alpha: 128),
+                                  offset: const Offset(2, 2),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '〜 悪魔との言葉遊び 〜',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[400],
+                        const SizedBox(height: 8),
+                        Text(
+                          '〜 悪魔との言葉遊び 〜',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[400],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 32),
-                      Container(
+                        const SizedBox(height: 32),
+                        Container(
                         margin: const EdgeInsets.symmetric(horizontal: 32),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -643,123 +749,215 @@ class _GamePageState extends ConsumerState<GamePage>
                           ],
                         ),
                       ),
-                      const SizedBox(height: 32),
-                      Text(
-                        'AIの難易度を選択',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[400],
+                        const SizedBox(height: 32),
+                        Text(
+                          'AIの難易度を選択',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[400],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
+                        const SizedBox(height: 16),
+                        Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: AiLevel.values.map((level) {
                           final isSelected = level == _selectedLevel;
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: ElevatedButton(
-                              onPressed: () =>
-                                  setState(() => _selectedLevel = level),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isSelected
-                                    ? const Color(0xFFD4AF37)
-                                    : const Color(0xFF2D2D2D),
-                                foregroundColor:
-                                    isSelected ? Colors.black : Colors.grey[400],
+                            child: GestureDetector(
+                              onTap: () => setState(() => _selectedLevel = level),
+                              child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 20,
                                   vertical: 12,
                                 ),
-                                shape: RoundedRectangleBorder(
+                                decoration: BoxDecoration(
+                                  gradient: isSelected
+                                      ? const LinearGradient(
+                                          colors: [Color(0xFFFFF8DC), Color(0xFFFFD700), Color(0xFFB8860B)],
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                        )
+                                      : LinearGradient(
+                                          colors: [Colors.grey[700]!, Colors.grey[800]!, Colors.grey[900]!],
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                        ),
                                   borderRadius: BorderRadius.circular(8),
-                                  side: BorderSide(
-                                    color: isSelected
-                                        ? const Color(0xFFD4AF37)
-                                        : Colors.grey[700]!,
+                                  border: Border.all(
+                                    color: isSelected ? const Color(0xFFFFD700) : Colors.grey[600]!,
+                                    width: 2,
+                                  ),
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(0xFFFFD700).withOpacity(0.6),
+                                            blurRadius: 16,
+                                            spreadRadius: 2,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.4),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ]
+                                      : [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.5),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ],
+                                ),
+                                child: Text(
+                                  _getLevelName(level),
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.black : Colors.white,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
-                              child: Text(_getLevelName(level)),
                             ),
                           );
                         }).toList(),
                       ),
-                      const SizedBox(height: 40),
-                      ElevatedButton(
-                        onPressed: _startGame,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF8B0000),
-                          foregroundColor: const Color(0xFFD4AF37),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 48,
-                            vertical: 16,
+                        const SizedBox(height: 40),
+                        Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF8B0000), Color(0xFF5A0000)],
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: const BorderSide(color: Color(0xFFD4AF37)),
-                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFD4AF37).withValues(alpha: 76),
+                              blurRadius: 15,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
                         ),
-                        child: const Text(
-                          '対AI戦',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                        child: ElevatedButton(
+                          onPressed: _startGame,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            foregroundColor: const Color(0xFFD4AF37),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 48,
+                              vertical: 16,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: () => context.push('/ranked'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFD4AF37),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 48,
-                            vertical: 16,
-                          ),
-                          side: const BorderSide(color: Color(0xFFD4AF37)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          '対人戦',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                          child: const Text(
+                            '対AI戦',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: () => context.push('/gacha'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFD4AF37),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 48,
-                            vertical: 16,
+                        const SizedBox(height: 12),
+                        Container(
+                          decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              const Color(0xFF2D2D2D),
+                              const Color(0xFF1E1E1E),
+                            ],
                           ),
-                          side: const BorderSide(color: Color(0xFFD4AF37)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFD4AF37).withValues(alpha: 51),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
-                        child: const Text(
-                          'ガチャ',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        child: OutlinedButton(
+                          onPressed: () => context.push('/ranked'),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: const Color(0xFFD4AF37),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 48,
+                              vertical: 16,
+                            ),
+                            side: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            '対人戦',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
-                    ],
+                        const SizedBox(height: 12),
+                        Container(
+                          decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              const Color(0xFF2D2D2D),
+                              const Color(0xFF1E1E1E),
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFD4AF37).withValues(alpha: 51),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: OutlinedButton(
+                          onPressed: () => context.push('/gacha'),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: const Color(0xFFD4AF37),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 48,
+                              vertical: 16,
+                            ),
+                            side: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'ガチャ',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -1533,11 +1731,43 @@ class _GamePageState extends ConsumerState<GamePage>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF3D3D3D),
+          gradient: isSelected
+              ? const LinearGradient(
+                  colors: [Color(0xFFFFF8DC), Color(0xFFFFD700), Color(0xFFB8860B)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                )
+              : LinearGradient(
+                  colors: [Colors.grey[700]!, Colors.grey[800]!, Colors.grey[900]!],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isSelected ? const Color(0xFFD4AF37) : Colors.grey[600]!,
+            color: isSelected ? const Color(0xFFFFD700) : Colors.grey[600]!,
+            width: 2,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFFFD700).withOpacity(0.6),
+                    blurRadius: 16,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 4),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
         ),
         child: Text(
           label,
@@ -1734,4 +1964,59 @@ class DemonFacePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant DemonFacePainter oldDelegate) => oldDelegate.isWin != isWin;
+}
+
+/// 魔法陣を描画するカスタムペインター
+class MagicCirclePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width * 0.7;
+
+    final paint = Paint()
+      ..color = const Color(0xFFD4AF37)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    // 外側の円
+    canvas.drawCircle(center, radius, paint);
+    canvas.drawCircle(center, radius * 0.9, paint);
+    canvas.drawCircle(center, radius * 0.8, paint);
+
+    // 五芒星
+    final starPath = Path();
+    for (int i = 0; i < 5; i++) {
+      final angle = (i * 144 - 90) * 3.14159 / 180;
+      
+      final point = Offset(
+        center.dx + radius * 0.7 * cos(angle),
+        center.dy + radius * 0.7 * sin(angle),
+      );
+      
+      if (i == 0) {
+        starPath.moveTo(point.dx, point.dy);
+      } else {
+        starPath.lineTo(point.dx, point.dy);
+      }
+    }
+    starPath.close();
+    canvas.drawPath(starPath, paint);
+
+    // 内側の複雑な模様
+    for (int i = 0; i < 12; i++) {
+      final angle = i * 30 * 3.14159 / 180;
+      final start = Offset(
+        center.dx + radius * 0.5 * cos(angle),
+        center.dy + radius * 0.5 * sin(angle),
+      );
+      final end = Offset(
+        center.dx + radius * 0.8 * cos(angle),
+        center.dy + radius * 0.8 * sin(angle),
+      );
+      canvas.drawLine(start, end, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

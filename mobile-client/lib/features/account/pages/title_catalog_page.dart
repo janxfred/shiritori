@@ -33,8 +33,20 @@ class _TitleCatalogPageState extends ConsumerState<TitleCatalogPage> {
       final api = ref.read(_meApiProvider);
       final res = await api.getTitleCatalog(token: session.token);
       if (!mounted) return;
+      // 五十音順にソート
+      final sortedTitles = List<TitleCatalogEntry>.from(res.titles)
+        ..sort((a, b) {
+          // 所持している場合のみ名前でソート
+          if (a.owned && b.owned) {
+            return a.name.compareTo(b.name);
+          }
+          // 未所持は後ろに
+          if (!a.owned && b.owned) return 1;
+          if (a.owned && !b.owned) return -1;
+          return 0;
+        });
       setState(() {
-        _titles = res.titles;
+        _titles = sortedTitles;
         _errorMessage = null;
       });
     } catch (e) {

@@ -1041,8 +1041,13 @@ class _ProfileSummaryCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _StatItem(label: '現在連勝', value: stats.currentStreak.toString()),
-                      _StatItem(label: '最大連勝', value: stats.maxStreak.toString()),
+                      _StatItem(label: '現在連勝数', value: stats.currentStreak.toString()),
+                      _StatItem(label: '最大連勝数', value: stats.maxStreak.toString()),
+                      if (stats.past30WinRate != null)
+                        _StatItem(
+                          label: '過去30戦勝率',
+                          value: '${stats.past30WinRate!.toStringAsFixed(1)}%',
+                        ),
                     ],
                   ),
                 ],

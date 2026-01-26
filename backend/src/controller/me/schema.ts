@@ -10,6 +10,7 @@ export const statsSchema = z.object({
   totalDraws: z.number().int(),
   currentStreak: z.number().int(),
   maxStreak: z.number().int(),
+  past30WinRate: z.number().nullable(), // 過去30試合の勝率（%）
 });
 
 export const meSchema = z.object({

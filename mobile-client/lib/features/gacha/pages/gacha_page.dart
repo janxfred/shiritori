@@ -60,9 +60,35 @@ class _GachaPageState extends ConsumerState<GachaPage> {
     try {
       final api = ref.read(gachaApiProvider);
       final status = await api.getStatus(token: session.token);
+      
+      // 排出率一覧をソート
+      final sortedRates = List<GachaRateEntry>.from(status.rates)
+        ..sort((a, b) {
+          // アイコンはNo.順
+          if (a is GachaIconRateEntry && b is GachaIconRateEntry) {
+            return a.displayNumber.compareTo(b.displayNumber);
+          }
+          // 称号は五十音順
+          if (a is GachaTitleRateEntry && b is GachaTitleRateEntry) {
+            return a.name.compareTo(b.name);
+          }
+          // メッセージは五十音順
+          if (a is GachaMessageRateEntry && b is GachaMessageRateEntry) {
+            return a.content.compareTo(b.content);
+          }
+          // 異なるタイプの場合: アイコン→メッセージ→称号→アイテム
+          final orderA = a is GachaIconRateEntry ? 0 : a is GachaMessageRateEntry ? 1 : a is GachaTitleRateEntry ? 2 : 3;
+          final orderB = b is GachaIconRateEntry ? 0 : b is GachaMessageRateEntry ? 1 : b is GachaTitleRateEntry ? 2 : 3;
+          return orderA.compareTo(orderB);
+        });
+      
       if (!mounted) return;
       setState(() {
-        _status = status;
+        _status = GachaStatusResponse(
+          cost: status.cost,
+          coins: status.coins,
+          rates: sortedRates,
+        );
       });
       ref.read(authControllerProvider.notifier).updateUser(
             session.user.copyWith(coins: status.coins),
@@ -207,6 +233,23 @@ class _GachaPageState extends ConsumerState<GachaPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                if (_last != null) ...[
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _RewardView(
+                        reward: _last!.reward,
+                        resolveImageUrl: _resolveImageUrl,
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('ここに召喚結果が表示されます'),
+                  ),
+                ],
+                const SizedBox(height: 12),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -253,23 +296,6 @@ class _GachaPageState extends ConsumerState<GachaPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                if (_last != null) ...[
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: _RewardView(
-                        reward: _last!.reward,
-                        resolveImageUrl: _resolveImageUrl,
-                      ),
-                    ),
-                  ),
-                ] else ...[
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text('ここに召喚結果が表示されます'),
-                  ),
-                ],
                     ],
                   ),
                 ),
