@@ -1093,7 +1093,7 @@ class _GamePageState extends ConsumerState<GamePage>
                   ),
                   Text(
                     'R${_session?.roundCount ?? 0}/${_session?.maxRounds ?? 10}',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    style: TextStyle(color: Colors.grey[200], fontSize: 15, fontWeight: FontWeight.w500),
                   ),
                 ],
               );

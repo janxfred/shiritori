@@ -88,6 +88,12 @@ class _MessageCatalogPageState extends ConsumerState<MessageCatalogPage> {
     super.dispose();
   }
 
+  double _calculateCompletionRate() {
+    if (_messages == null || _messages!.isEmpty) return 0.0;
+    final owned = _messages!.where((message) => message.owned).length;
+    return (owned / _messages!.length) * 100;
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(authControllerProvider, (_, next) {
@@ -101,7 +107,20 @@ class _MessageCatalogPageState extends ConsumerState<MessageCatalogPage> {
     final session = sessionAsync.valueOrNull;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('メッセージ一覧')),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('メッセージ一覧'),
+            if (_messages != null && _messages!.isNotEmpty) ...[
+              Text(
+                'コンプ率: ${_calculateCompletionRate().toStringAsFixed(1)}%',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
+              ),
+            ],
+          ],
+        ),
+      ),
       body: Column(
         children: [
           Expanded(

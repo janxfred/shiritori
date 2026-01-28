@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,6 +22,8 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
   bool _busy = false;
   int? _myRating;
   bool _matchmakeRequested = false;
+  int _retryCount = 0;
+  Timer? _retryTimer;
 
   @override
   void didChangeDependencies() {
@@ -38,6 +41,12 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
         if (mounted) _startMatchmake();
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _refreshMe() async {
@@ -59,13 +68,105 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
     final session = ref.read(authControllerProvider).valueOrNull;
     if (session == null) return;
 
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _retryCount = 0;
+    });
+
+    _retryTimer?.cancel();
+    _retryTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      if (!mounted || !_busy) {
+        _retryTimer?.cancel();
+        return;
+      }
+
+      _retryCount++;
+
+      // 6秒経過したらAI Level 3戦に切り替え
+      if (_retryCount >= 6) {
+        _retryTimer?.cancel();
+        if (mounted) {
+          setState(() => _busy = false);
+          _switchToAiGame();
+        }
+        return;
+      }
+
+      try {
+        final api = ref.read(rankedApiProvider);
+        final res = await api.matchmake(token: session.token);
+        if (!mounted) return;
+
+        _retryTimer?.cancel();
+
+        // PvP開始時に魂は必ず1消費される（失敗時は例外になるためここには来ない）
+        ref.read(authControllerProvider.notifier).updateUser(
+              session.user.copyWith(
+                soulCount: (session.user.soulCount - 1).clamp(0, 1 << 30),
+              ),
+            );
+
+        final pvpOpponent = PvpOpponent(
+          userId: res.opponent.userId,
+          name: res.opponent.name,
+          iconImageUrl: res.opponent.iconImageUrl,
+          messageContent: res.opponent.messageContent,
+          titleName: res.opponent.titleName,
+          rating: res.opponent.rating,
+          totalWins: res.opponent.totalWins,
+          winRate: res.opponent.winRate,
+          maxStreak: res.opponent.maxStreak,
+        );
+
+        try {
+          final meApi = ref.read(meApiProvider);
+          final me = await meApi.getMe(token: session.token);
+          if (mounted) {
+            ref.read(authControllerProvider.notifier).updateUser(
+                  session.user.copyWith(
+                    name: me.name,
+                    email: me.email,
+                    coins: me.coins,
+                    soulCount: me.soulCount,
+                  ),
+                );
+          }
+        } catch (_) {
+          // 失敗しても対戦は開始できる
+        }
+
+        if (!mounted) return;
+
+        setState(() => _busy = false);
+
+        // 相手が見つかったら即対戦開始（この画面に戻らない）
+        context.go('/pvp/${res.sessionId}', extra: pvpOpponent);
+      } catch (e) {
+        // エラーの場合は静かにリトライを続ける（404含む全てのエラー）
+        // 6秒経過でAI偽装対戦に自動切り替えされる
+        if (mounted) {
+          setState(() {}); // UIを更新（カウントアップを反映）
+        }
+      }
+    });
+  }
+
+  void _switchToAiGame() async {
+    // AI偽装対戦を開始（UIは対人戦と同じ、相手の思考はAI Lv.3）
+    if (!mounted) return;
+
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null) {
+      context.go('/');
+      return;
+    }
+
     try {
       final api = ref.read(rankedApiProvider);
-      final res = await api.matchmake(token: session.token);
+      final res = await api.matchmakeWithAi(token: session.token);
       if (!mounted) return;
 
-      // PvP開始時に魂は必ず1消費される（失敗時は例外になるためここには来ない）
+      // 魂消費を反映
       ref.read(authControllerProvider.notifier).updateUser(
             session.user.copyWith(
               soulCount: (session.user.soulCount - 1).clamp(0, 1 << 30),
@@ -84,6 +185,7 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
         maxStreak: res.opponent.maxStreak,
       );
 
+      // 自分の最新情報を取得
       try {
         final meApi = ref.read(meApiProvider);
         final me = await meApi.getMe(token: session.token);
@@ -103,15 +205,14 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
 
       if (!mounted) return;
 
-      // 相手が見つかったら即対戦開始（この画面に戻らない）
+      // 対人戦と同じUIでPvP画面に遷移
       context.go('/pvp/${res.sessionId}', extra: pvpOpponent);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('マッチングに失敗しました: $e')),
+        SnackBar(content: Text('対戦の開始に失敗しました: $e')),
       );
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      context.go('/');
     }
   }
 
@@ -122,7 +223,7 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('対人戦'),
+        title: const Text('マッチング'),
         leading: IconButton(
           tooltip: 'ホームへ',
           onPressed: () => context.go('/'),
@@ -138,7 +239,7 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('対人戦にはログインが必要です'),
+                    const Text('マッチングにはログインが必要です'),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () => context.push('/login'),
@@ -177,21 +278,17 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
                   padding: const EdgeInsets.all(12),
                   child: Row(
                     children: [
-                      if (_busy) ...[
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '対戦相手を探し中... ($_retryCount/6秒)',
                         ),
-                        const SizedBox(width: 10),
-                        const Expanded(child: Text('マッチング中…')),
-                      ] else ...[
-                        const Expanded(child: Text('マッチング待機中')),
-                        TextButton(
-                          onPressed: _startMatchmake,
-                          child: const Text('再試行'),
-                        ),
-                      ],
+                      ),
                     ],
                   ),
                 ),

@@ -278,12 +278,12 @@ class _GachaPageState extends ConsumerState<GachaPage> {
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 6),
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
                                     child: Text(
                                       label,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: true,
                                     ),
                                   ),
                                   const SizedBox(width: 12),

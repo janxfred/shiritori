@@ -158,7 +158,39 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF1E1E1E),
         useMaterial3: true,
         textTheme: GoogleFonts.notoSerifJpTextTheme(
-          ThemeData.dark().textTheme,
+          ThemeData.dark().textTheme.copyWith(
+            // 基本的な文字サイズと色を見やすく調整
+            bodyLarge: const TextStyle(
+              fontSize: 17,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+            bodyMedium: const TextStyle(
+              fontSize: 16,
+              color: Colors.white,
+              fontWeight: FontWeight.w400,
+            ),
+            bodySmall: const TextStyle(
+              fontSize: 15,
+              color: Color(0xFFE0E0E0),
+              fontWeight: FontWeight.w400,
+            ),
+            labelLarge: const TextStyle(
+              fontSize: 16,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+            labelMedium: const TextStyle(
+              fontSize: 15,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+            labelSmall: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFFE0E0E0),
+              fontWeight: FontWeight.w400,
+            ),
+          ),
         ),
       ),
       localizationsDelegates: const [

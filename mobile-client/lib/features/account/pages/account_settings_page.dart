@@ -702,9 +702,12 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                             children: [
                               for (final m in inventory.messages)
                                 ChoiceChip(
-                                  label: Text(
-                                    m.content,
-                                    overflow: TextOverflow.ellipsis,
+                                  label: ConstrainedBox(
+                                    constraints: const BoxConstraints(maxWidth: 300),
+                                    child: Text(
+                                      m.content,
+                                      softWrap: true,
+                                    ),
                                   ),
                                   selected: m.id == me.messageId,
                                   onSelected: _busy
