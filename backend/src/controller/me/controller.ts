@@ -81,7 +81,16 @@ function formatMe(user: {
     isWinCountPublic: user.isWinCountPublic,
     isWinRatePublic: user.isWinRatePublic,
     isStreakPublic: user.isStreakPublic,
-    stats: user.stats,
+    stats: user.stats
+      ? {
+          totalWins: user.stats.totalWins,
+          totalLosses: user.stats.totalLosses,
+          totalDraws: user.stats.totalDraws,
+          currentStreak: user.stats.currentStreak,
+          maxStreak: user.stats.maxStreak,
+          past30WinRate: user.stats.past30WinRate ?? null,
+        }
+      : null,
     lastRatingDelta: user.lastRatingDelta,
     lastMatchAt: user.lastMatchAt,
   };
@@ -257,29 +266,35 @@ export default async function (fastify: ServerInstance) {
             .send({ message: `その称号は所持していません (${slotKey})` });
       }
 
-      const user = await prisma.user.update({
-        where: { id: payload.userId },
-        data: {
-          ...(body.iconId ? { iconId: body.iconId } : {}),
-          ...(body.messageId ? { messageId: body.messageId } : {}),
-          ...(body.title1Id !== undefined ? { title1Id: body.title1Id } : {}),
-          ...(body.title2Id !== undefined ? { title2Id: body.title2Id } : {}),
-          ...(body.title3Id !== undefined ? { title3Id: body.title3Id } : {}),
-          ...(body.isRatingPublic !== undefined
-            ? { isRatingPublic: body.isRatingPublic }
-            : {}),
-          ...(body.isWinCountPublic !== undefined
-            ? { isWinCountPublic: body.isWinCountPublic }
-            : {}),
-          ...(body.isWinRatePublic !== undefined
-            ? { isWinRatePublic: body.isWinRatePublic }
-            : {}),
-          ...(body.isStreakPublic !== undefined
-            ? { isStreakPublic: body.isStreakPublic }
-            : {}),
-        },
-        include: { stats: true },
-      });
+      let user;
+      try {
+        user = await prisma.user.update({
+          where: { id: payload.userId },
+          data: {
+            ...(body.iconId ? { iconId: body.iconId } : {}),
+            ...(body.messageId ? { messageId: body.messageId } : {}),
+            ...(body.title1Id !== undefined ? { title1Id: body.title1Id } : {}),
+            ...(body.title2Id !== undefined ? { title2Id: body.title2Id } : {}),
+            ...(body.title3Id !== undefined ? { title3Id: body.title3Id } : {}),
+            ...(body.isRatingPublic !== undefined
+              ? { isRatingPublic: body.isRatingPublic }
+              : {}),
+            ...(body.isWinCountPublic !== undefined
+              ? { isWinCountPublic: body.isWinCountPublic }
+              : {}),
+            ...(body.isWinRatePublic !== undefined
+              ? { isWinRatePublic: body.isWinRatePublic }
+              : {}),
+            ...(body.isStreakPublic !== undefined
+              ? { isStreakPublic: body.isStreakPublic }
+              : {}),
+          },
+          include: { stats: true },
+        });
+      } catch (e) {
+        console.error("[updateMe] Failed to update user:", e);
+        throw e;
+      }
 
       const lastMatch = await prisma.matchHistory.findFirst({
         where: { userId: user.id },

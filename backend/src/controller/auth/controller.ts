@@ -21,7 +21,7 @@ import {
 const LOGIN_BONUS_COINS_FREE = 3;
 const LOGIN_BONUS_COINS_PREMIUM = 20;
 const LOGIN_BONUS_INTERVAL_HOURS = 24;
-const MAX_LOGIN_BONUS_STACK = 3;
+const MAX_LOGIN_BONUS_STACK = 2;
 
 async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
   // アイコンマスタ

@@ -506,7 +506,7 @@ class _GamePageState extends ConsumerState<GamePage>
                       child: ref.watch(authControllerProvider).maybeWhen(
                         data: (session) => session == null
                             ? ElevatedButton.icon(
-                                onPressed: () => context.push('/account'),
+                                onPressed: () => context.push('/login'),
                                 label: const Text('ログイン'),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFD4AF37),
@@ -718,7 +718,7 @@ class _GamePageState extends ConsumerState<GamePage>
                           children: [
                             const Center(
                               child: Text(
-                                '【ルール】',
+                                '【ルール〜相手の使った文字は使えない〜】',
                                 style: TextStyle(
                                   color: Color(0xFFD4AF37),
                                   fontSize: 14,
@@ -732,11 +732,11 @@ class _GamePageState extends ConsumerState<GamePage>
 〜主な契約事〜
 • 初めて使った文字を「確保」する
 • 相手の確保文字は使用不可
-• 確保文字が少ない方が勝利
+• 10ターン終了時、確保文字が少ない方が勝利
 
 〜その他の契約事〜
 • お手つき2回で即敗北
-• 1ターン40秒で10ターン制
+• 1ターン40秒
 • 小さい文字は大きい文字と同一となる
 • 悪魔辞書にある一般的単語のみ使用可
                               ''',
@@ -980,6 +980,13 @@ class _GamePageState extends ConsumerState<GamePage>
 
 【コインとは？】
 ・召喚（ガチャ）で使用します。対人戦の勝利で+4コイン、敗北で+1コイン獲得できます。
+
+【称号とは？】
+・条件達成ごとに獲得できます。アカウント設定画面にある、称号一覧画面から、獲得条件を確認できます。
+
+【ウィークリーミッションもある？】
+・はい。毎週 AI戦含む累計対戦数が2回、5回に達した場合、コイン報酬が獲得できます。この文言を見つけたあなただけの秘密です。
+
 ''',
               style: const TextStyle(height: 1.4),
             ),
