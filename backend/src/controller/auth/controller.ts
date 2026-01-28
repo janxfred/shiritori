@@ -4,6 +4,7 @@ import {
   checkCoinsTitles,
   checkLoginStreakTitles,
 } from "../../domain/services/TitleAchievementService";
+import { checkAndRecoverSoul } from "../../domain/services/SoulRecoveryService";
 import { signAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
 import { ICON_CATALOG } from "../../lib/icon_catalog";
@@ -20,6 +21,7 @@ import {
 const LOGIN_BONUS_COINS_FREE = 3;
 const LOGIN_BONUS_COINS_PREMIUM = 20;
 const LOGIN_BONUS_INTERVAL_HOURS = 24;
+const MAX_LOGIN_BONUS_STACK = 3;
 
 async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
   // アイコンマスタ
@@ -298,6 +300,15 @@ export default async function (fastify: ServerInstance) {
 
       // トランザクションでログイン処理
       const updated = await prisma.$transaction(async (tx) => {
+        // 魂の全回復チェック（24時間経過）
+        const recoveredSoulCount = await checkAndRecoverSoul(
+          user.id,
+          user.soulCount,
+          user.lastSoulUsedAt,
+          user.isSubscriber,
+          tx,
+        );
+
         // ログインボーナスチェック
         const lastBonusAt = user.lastLoginBonusAt;
         const hoursSinceLastBonus = lastBonusAt
@@ -305,19 +316,30 @@ export default async function (fastify: ServerInstance) {
           : LOGIN_BONUS_INTERVAL_HOURS + 1;
 
         if (hoursSinceLastBonus >= LOGIN_BONUS_INTERVAL_HOURS) {
-          // ログインボーナスをプレゼントボックスに追加
-          const bonusAmount = user.isSubscriber
-            ? LOGIN_BONUS_COINS_PREMIUM
-            : LOGIN_BONUS_COINS_FREE;
-          await tx.presentBox.create({
-            data: {
+          // 未受取のログインボーナス数をカウント
+          const unclaimedLoginBonusCount = await tx.presentBox.count({
+            where: {
               userId: user.id,
-              type: "coin",
-              amount: bonusAmount,
+              claimed: false,
               description: "ログインボーナス",
             },
           });
-          loginBonusGranted = true;
+
+          // 累積上限（3つ）未満の場合のみログインボーナスを追加
+          if (unclaimedLoginBonusCount < MAX_LOGIN_BONUS_STACK) {
+            const bonusAmount = user.isSubscriber
+              ? LOGIN_BONUS_COINS_PREMIUM
+              : LOGIN_BONUS_COINS_FREE;
+            await tx.presentBox.create({
+              data: {
+                userId: user.id,
+                type: "coin",
+                amount: bonusAmount,
+                description: "ログインボーナス",
+              },
+            });
+            loginBonusGranted = true;
+          }
         }
 
         // 連続ログイン日数チェック

@@ -20,6 +20,21 @@ class RankedApi {
     }
   }
 
+  /// AI偽装対戦を開始する（対人相手が見つからない場合に使用）
+  /// UIは対人戦と同じだが、相手の思考はAI Lv.3
+  Future<MatchmakeResponse> matchmakeWithAi({required String token}) async {
+    try {
+      final res = await _dio.post(
+        '/api/matchmake/ai',
+        data: {},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return MatchmakeResponse.fromJson(res.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   Future<CreateMatchResponse> submitMatch({
     required String userId,
     required String opponentId,

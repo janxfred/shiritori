@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'features/game/pages/game_page.dart';
 import 'features/users/pages/user_list_page.dart';
@@ -76,6 +77,11 @@ Future<void> main() async {
 
 final _router = GoRouter(
   initialLocation: '/',
+  redirect: (context, state) {
+    // 認証プロバイダーの状態を取得するためにProviderContainerが必要ですが、
+    // ここでは直接アクセスできないため、ログイン状態は各ページで処理します
+    return null;
+  },
   routes: [
     GoRoute(
       path: '/',
@@ -151,6 +157,41 @@ class MyApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFF1E1E1E),
         useMaterial3: true,
+        textTheme: GoogleFonts.notoSerifJpTextTheme(
+          ThemeData.dark().textTheme.copyWith(
+            // 基本的な文字サイズと色を見やすく調整
+            bodyLarge: const TextStyle(
+              fontSize: 17,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+            bodyMedium: const TextStyle(
+              fontSize: 16,
+              color: Colors.white,
+              fontWeight: FontWeight.w400,
+            ),
+            bodySmall: const TextStyle(
+              fontSize: 15,
+              color: Color(0xFFE0E0E0),
+              fontWeight: FontWeight.w400,
+            ),
+            labelLarge: const TextStyle(
+              fontSize: 16,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+            labelMedium: const TextStyle(
+              fontSize: 15,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+            labelSmall: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFFE0E0E0),
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
       ),
       localizationsDelegates: const [
         AppLocalizations.delegate,

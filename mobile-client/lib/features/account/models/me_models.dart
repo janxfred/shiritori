@@ -5,6 +5,7 @@ class MeStats {
     required this.totalDraws,
     required this.currentStreak,
     required this.maxStreak,
+    this.past30WinRate,
   });
 
   final int totalWins;
@@ -12,6 +13,7 @@ class MeStats {
   final int totalDraws;
   final int currentStreak;
   final int maxStreak;
+  final double? past30WinRate;
 
   factory MeStats.fromJson(Map<String, dynamic> json) {
     return MeStats(
@@ -20,6 +22,7 @@ class MeStats {
       totalDraws: (json['totalDraws'] as num).toInt(),
       currentStreak: (json['currentStreak'] as num).toInt(),
       maxStreak: (json['maxStreak'] as num).toInt(),
+      past30WinRate: json['past30WinRate'] != null ? (json['past30WinRate'] as num).toDouble() : null,
     );
   }
 }

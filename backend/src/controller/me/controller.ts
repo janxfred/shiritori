@@ -57,6 +57,7 @@ function formatMe(user: {
     totalDraws: number;
     currentStreak: number;
     maxStreak: number;
+    past30WinRate: number | null;
   } | null;
   lastRatingDelta: number | null;
   lastMatchAt: string | null;
@@ -146,9 +147,29 @@ export default async function (fastify: ServerInstance) {
         select: { result: true, createdAt: true },
       });
 
+      // 過去30試合の勝率を計算
+      const past30Matches = await prisma.matchHistory.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        select: { result: true },
+      });
+
+      let past30WinRate: number | null = null;
+      if (past30Matches.length > 0) {
+        const wins = past30Matches.filter((m) => m.result === "win").length;
+        past30WinRate = (wins / past30Matches.length) * 100;
+      }
+
       return reply.send({
         user: formatMe({
           ...user,
+          stats: user.stats
+            ? {
+                ...user.stats,
+                past30WinRate,
+              }
+            : null,
           lastRatingDelta: lastMatch
             ? ratingDeltaFromResult(lastMatch.result as "win" | "loss" | "draw")
             : null,

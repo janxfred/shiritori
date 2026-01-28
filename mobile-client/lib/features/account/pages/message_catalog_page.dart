@@ -33,8 +33,20 @@ class _MessageCatalogPageState extends ConsumerState<MessageCatalogPage> {
       final api = ref.read(_meApiProvider);
       final res = await api.getMessageCatalog(token: session.token);
       if (!mounted) return;
+      // 五十音順にソート
+      final sortedMessages = List<MessageCatalogEntry>.from(res.messages)
+        ..sort((a, b) {
+          // 所持している場合のみ内容でソート
+          if (a.owned && b.owned) {
+            return a.content.compareTo(b.content);
+          }
+          // 未所持は後ろに
+          if (!a.owned && b.owned) return 1;
+          if (a.owned && !b.owned) return -1;
+          return 0;
+        });
       setState(() {
-        _messages = res.messages;
+        _messages = sortedMessages;
         _errorMessage = null;
       });
     } catch (e) {
@@ -76,6 +88,12 @@ class _MessageCatalogPageState extends ConsumerState<MessageCatalogPage> {
     super.dispose();
   }
 
+  double _calculateCompletionRate() {
+    if (_messages == null || _messages!.isEmpty) return 0.0;
+    final owned = _messages!.where((message) => message.owned).length;
+    return (owned / _messages!.length) * 100;
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(authControllerProvider, (_, next) {
@@ -89,7 +107,20 @@ class _MessageCatalogPageState extends ConsumerState<MessageCatalogPage> {
     final session = sessionAsync.valueOrNull;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('メッセージ一覧')),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('メッセージ一覧'),
+            if (_messages != null && _messages!.isNotEmpty) ...[
+              Text(
+                'コンプ率: ${_calculateCompletionRate().toStringAsFixed(1)}%',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
+              ),
+            ],
+          ],
+        ),
+      ),
       body: Column(
         children: [
           Expanded(

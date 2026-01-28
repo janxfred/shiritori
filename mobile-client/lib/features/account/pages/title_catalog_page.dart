@@ -33,8 +33,20 @@ class _TitleCatalogPageState extends ConsumerState<TitleCatalogPage> {
       final api = ref.read(_meApiProvider);
       final res = await api.getTitleCatalog(token: session.token);
       if (!mounted) return;
+      // 五十音順にソート
+      final sortedTitles = List<TitleCatalogEntry>.from(res.titles)
+        ..sort((a, b) {
+          // 所持している場合のみ名前でソート
+          if (a.owned && b.owned) {
+            return a.name.compareTo(b.name);
+          }
+          // 未所持は後ろに
+          if (!a.owned && b.owned) return 1;
+          if (a.owned && !b.owned) return -1;
+          return 0;
+        });
       setState(() {
-        _titles = res.titles;
+        _titles = sortedTitles;
         _errorMessage = null;
       });
     } catch (e) {
@@ -76,6 +88,12 @@ class _TitleCatalogPageState extends ConsumerState<TitleCatalogPage> {
     super.dispose();
   }
 
+  double _calculateCompletionRate() {
+    if (_titles == null || _titles!.isEmpty) return 0.0;
+    final owned = _titles!.where((title) => title.owned).length;
+    return (owned / _titles!.length) * 100;
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(authControllerProvider, (_, next) {
@@ -89,7 +107,20 @@ class _TitleCatalogPageState extends ConsumerState<TitleCatalogPage> {
     final session = sessionAsync.valueOrNull;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('称号一覧')),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('称号一覧'),
+            if (_titles != null && _titles!.isNotEmpty) ...[
+              Text(
+                'コンプ率: ${_calculateCompletionRate().toStringAsFixed(1)}%',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
+              ),
+            ],
+          ],
+        ),
+      ),
       body: Column(
         children: [
           Expanded(

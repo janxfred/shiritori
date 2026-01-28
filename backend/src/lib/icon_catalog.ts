@@ -58,13 +58,6 @@ export const ICON_CATALOG: readonly IconCatalogEntry[] = [
     staticFileName: "demon_white_gray_horn.png",
     displayNumber: 7,
   },
-  {
-    id: "demon_white_gray",
-    imageUrl: "/static/demon_white_gray.jpg",
-    rarity: 1,
-    staticFileName: "demon_white_gray.jpg",
-    displayNumber: 8,
-  },
 ] as const;
 
 export const ICON_IDS: readonly string[] = ICON_CATALOG.map((x) => x.id);

@@ -90,6 +90,12 @@ class _IconCatalogPageState extends ConsumerState<IconCatalogPage> {
     super.dispose();
   }
 
+  double _calculateCompletionRate() {
+    if (_icons == null || _icons!.isEmpty) return 0.0;
+    final owned = _icons!.where((icon) => icon.owned).length;
+    return (owned / _icons!.length) * 100;
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(authControllerProvider, (_, next) {
@@ -103,7 +109,20 @@ class _IconCatalogPageState extends ConsumerState<IconCatalogPage> {
     final session = sessionAsync.valueOrNull;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('アイコン一覧')),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('アイコン一覧'),
+            if (_icons != null && _icons!.isNotEmpty) ...[
+              Text(
+                'コンプ率: ${_calculateCompletionRate().toStringAsFixed(1)}%',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
+              ),
+            ],
+          ],
+        ),
+      ),
       body: Column(
         children: [
           Expanded(

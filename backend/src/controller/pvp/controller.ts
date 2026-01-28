@@ -7,6 +7,7 @@ import {
   checkTotalWinsTitles,
   checkWinStreakTitles,
 } from "../../domain/services/TitleAchievementService";
+import { thinkNextWord } from "../../domain/services/AiBrainService";
 import { verifyAuthToken } from "../../lib/auth";
 import { type ServerInstance } from "../../lib/fastify";
 import {
@@ -14,7 +15,10 @@ import {
   getNextStartChar,
   judgeWord,
 } from "../../domain/services/ShiritoriJudgeService";
-import { isInDictionary } from "../../infrastructure/DictionaryRepository";
+import {
+  findWordsByPrefix,
+  isInDictionary,
+} from "../../infrastructure/DictionaryRepository";
 import { MAX_ROUNDS } from "../../infrastructure/GameSessionStore";
 import {
   createPvpSession,
@@ -37,6 +41,12 @@ import {
   pvpSubmitRequestSchema,
   pvpSubmitResponseSchema,
 } from "./schema";
+import { AI_USER_ID_PREFIX } from "../matchmake/controller";
+
+/** 対戦相手がAI偽装ユーザーかどうかを判定 */
+function isAiOpponent(userId: string): boolean {
+  return userId.startsWith(AI_USER_ID_PREFIX);
+}
 
 function getBearerToken(request: {
   headers: Record<string, unknown>;
@@ -102,6 +112,137 @@ function computeWinnerUserId(session: PvpSession): string | null {
   if (session.status === "p1_win") return session.player1Id;
   if (session.status === "p2_win") return session.player2Id;
   return null;
+}
+
+/**
+ * AI偽装対戦: AIのターンを自動で処理する
+ * プレイヤーが有効な手を打った後、次がAIのターンの場合に呼ばれる
+ * 非同期で遅延処理するため、呼び出し元は待機しない
+ */
+export function scheduleAiTurnIfNeeded(session: PvpSession): void {
+  // 次のプレイヤーがAIでない場合は何もしない
+  if (!isAiOpponent(session.currentTurnUserId)) {
+    return;
+  }
+
+  // ゲームが終了している場合は何もしない
+  if (session.status !== "playing") {
+    return;
+  }
+
+  // セッションIDを保存（クロージャで参照）
+  const sessionId = session.id;
+
+  // 人間らしさを演出: 5〜20秒のランダム遅延後にAIが応答
+  const delayMs = 5000 + Math.floor(Math.random() * 15000);
+
+  setTimeout(async () => {
+    try {
+      // 遅延後にセッションを再取得（状態が変わっている可能性）
+      const currentSession = await getPvpSession(sessionId);
+      if (!currentSession) return;
+
+      // 既にゲームが終了している場合は何もしない
+      if (currentSession.status !== "playing") return;
+
+      // AIのターンでない場合は何もしない（タイムアウト等で状態が変わった）
+      if (!isAiOpponent(currentSession.currentTurnUserId)) return;
+
+      await processAiTurn(currentSession);
+    } catch (e) {
+      console.error("[AI Turn] Error processing AI turn:", e);
+    }
+  }, delayMs);
+}
+
+/**
+ * AIのターンを実際に処理する（遅延なし）
+ */
+async function processAiTurn(session: PvpSession): Promise<void> {
+  const aiUserId = session.currentTurnUserId;
+  const humanUserId = getOpponentId({ session, userId: aiUserId });
+
+  // AIの思考（Lv.3 = 常に戦略的）
+  const aiResult = thinkNextWord({
+    level: 3,
+    turnCount: session.turnCount,
+    startChar: session.expectedStartChar,
+    playerCapturedChars: getCapturedSet({ session, userId: humanUserId }),
+    usedWords: session.usedWords,
+    findWordsByPrefix,
+  });
+
+  session.turnCount++;
+
+  if (aiResult.noValidWord || !aiResult.word) {
+    // AIが有効な単語を見つけられない場合、AIの負け
+    session.history.push({
+      turn: session.turnCount,
+      playerId: aiUserId,
+      word: "(降参)",
+      isValid: false,
+      capturedChars: [],
+      message: "有効な単語が見つからない…",
+    });
+
+    session.status = session.player1Id === humanUserId ? "p1_win" : "p2_win";
+    await updatePvpSession(session);
+    return;
+  }
+
+  const word = aiResult.word;
+
+  // 有効な単語
+  session.usedWords.add(word);
+  const capturedChars = extractCharsToCapture(word);
+  const aiCaptured = getCapturedSet({ session, userId: aiUserId });
+  const humanCaptured = getOpponentCapturedSet({ session, userId: aiUserId });
+
+  for (const ch of capturedChars) {
+    if (!aiCaptured.has(ch) && !humanCaptured.has(ch)) {
+      aiCaptured.add(ch);
+    }
+  }
+
+  session.lastWord = word;
+  session.expectedStartChar = getNextStartChar(word);
+
+  session.history.push({
+    turn: session.turnCount,
+    playerId: aiUserId,
+    word,
+    isValid: true,
+    capturedChars,
+    message: "OK",
+  });
+
+  // 手番交代 & タイマーリセット
+  session.currentTurnUserId = humanUserId;
+  session.turnStartedAt = new Date();
+
+  // ラウンド進行
+  if (session.validTurnsInRound === 0) {
+    session.validTurnsInRound = 1;
+  } else {
+    session.validTurnsInRound = 0;
+    session.roundCount++;
+  }
+
+  // 10ラウンド終了判定
+  if (session.roundCount >= MAX_ROUNDS) {
+    const p1Chars = session.player1CapturedChars.size;
+    const p2Chars = session.player2CapturedChars.size;
+
+    if (p1Chars < p2Chars) {
+      session.status = "p1_win";
+    } else if (p1Chars > p2Chars) {
+      session.status = "p2_win";
+    } else {
+      session.status = "draw";
+    }
+  }
+
+  await updatePvpSession(session);
 }
 
 function ratingDeltaFromResult(result: "win" | "loss" | "draw"): number {
@@ -195,11 +336,98 @@ async function commitRatedResultIfNeeded(params: {
       where: { id: session.player1Id },
       include: { stats: true },
     }),
-    prisma.user.findUnique({
-      where: { id: session.player2Id },
-      include: { stats: true },
-    }),
+    // AI偽装対戦の場合、player2はAIなのでDBに存在しない
+    isAiOpponent(session.player2Id)
+      ? Promise.resolve(null)
+      : prisma.user.findUnique({
+          where: { id: session.player2Id },
+          include: { stats: true },
+        }),
   ]);
+
+  // AI偽装対戦の場合: p1（人間）のみ更新、AIは無視
+  if (isAiOpponent(session.player2Id)) {
+    if (!p1) return undefined;
+
+    const p1Result: "win" | "loss" | "draw" =
+      session.status === "draw"
+        ? "draw"
+        : winnerUserId === session.player1Id
+          ? "win"
+          : "loss";
+
+    const p1Delta = ratingDeltaFromResult(p1Result);
+    const p1CoinDelta = coinDeltaFromResult(p1Result);
+
+    const nextStats = (user: typeof p1, result: "win" | "loss" | "draw") => {
+      const totalWins =
+        (user.stats?.totalWins ?? 0) + (result === "win" ? 1 : 0);
+      const totalLosses =
+        (user.stats?.totalLosses ?? 0) + (result === "loss" ? 1 : 0);
+      const totalDraws =
+        (user.stats?.totalDraws ?? 0) + (result === "draw" ? 1 : 0);
+
+      const currentStreak =
+        result === "win" ? (user.stats?.currentStreak ?? 0) + 1 : 0;
+      const maxStreak = Math.max(user.stats?.maxStreak ?? 0, currentStreak);
+
+      const currentLoseStreak =
+        result === "loss" ? (user.stats?.currentLoseStreak ?? 0) + 1 : 0;
+
+      return {
+        totalWins,
+        totalLosses,
+        totalDraws,
+        currentStreak,
+        maxStreak,
+        currentLoseStreak,
+      };
+    };
+
+    const p1Next = nextStats(p1, p1Result);
+
+    const updatedP1 = await prisma.user.update({
+      where: { id: p1.id },
+      data: {
+        rating: { increment: p1Delta },
+        coins: { increment: p1CoinDelta },
+        stats: {
+          upsert: {
+            create: p1Next,
+            update: p1Next,
+          },
+        },
+      },
+      select: { id: true, rating: true, coins: true },
+    });
+
+    // AI対戦は対戦履歴に残さない（aiMatchCountで別途カウント）
+    await prisma.userStats.update({
+      where: { userId: p1.id },
+      data: { aiMatchCount: { increment: 1 } },
+    });
+
+    // 称号チェック（プレイヤーのみ）
+    await checkRatingTitles(prisma, p1.id, updatedP1.rating);
+    await checkCoinsTitles(prisma, p1.id, updatedP1.coins);
+    await checkWinStreakTitles(prisma, p1.id, p1Next.currentStreak);
+    await checkLoseStreakTitles(prisma, p1.id, p1Next.currentLoseStreak);
+    await checkTotalWinsTitles(prisma, p1.id, p1Next.totalWins);
+
+    session.resultCommitted = true;
+    await updatePvpSession(session);
+
+    debugLog("committed AI match result", { p1Result, p1Delta, p1CoinDelta });
+
+    return {
+      userId: p1.id,
+      opponentId: session.player2Id,
+      userRating: updatedP1.rating,
+      opponentRating: 1500, // AIの仮想レーティング
+      userDelta: p1Delta,
+      opponentDelta: 0,
+    };
+  }
 
   if (!p1 || !p2) return undefined;
 
@@ -797,6 +1025,11 @@ export default async function (fastify: ServerInstance) {
       }
 
       await updatePvpSession(session);
+
+      // AI偽装対戦: 次がAIのターンなら非同期で遅延処理をスケジュール
+      // クライアントへは即座にレスポンスを返し、AIの応答はポーリングで取得
+      scheduleAiTurnIfNeeded(session);
+
       return reply.send({
         session: sessionToJson(session),
         playerResult: { word, isValid: true, message: "OK", capturedChars },

@@ -47,6 +47,9 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
 
   final ValueNotifier<int> _remainingTimeMs = ValueNotifier<int>(0);
 
+  // 履歴の自動スクロール用
+  final ScrollController _historyScrollController = ScrollController();
+
   PvpSession? _session;
   PvpOpponent? _opponent;
   PvpRated? _rated;
@@ -168,6 +171,10 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
     final shouldRebuild = prev == null
         ? true
         : _shouldRebuildForSessionChange(prev: prev, next: session);
+    
+    // 履歴が更新されたらスクロール
+    final historyChanged = prev == null || prev.history.length != session.history.length;
+    
     if (!shouldRebuild) {
       // 残り時間だけ変わるケースではsetStateしない（IME変換中の入力が壊れやすい）
       _session = session;
@@ -180,6 +187,11 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
         _showGameOverModal = true;
       }
     });
+
+    // 履歴が更新されたらスクロール
+    if (historyChanged) {
+      _scrollToBottom();
+    }
 
     if (session.status != 'playing') {
       _syncMeAfterGameOver();
@@ -257,7 +269,21 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
     _wordController.dispose();
     _remainingTimeMs.dispose();
     _bannerAd?.dispose();
+    _historyScrollController.dispose();
     super.dispose();
+  }
+
+  /// 履歴を一番下にスクロール
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_historyScrollController.hasClients) {
+        _historyScrollController.animateTo(
+          _historyScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   Future<void> _tick() async {
@@ -626,16 +652,16 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                     ),
                         ],
                       ),
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: IconButton(
-                          tooltip: '戻る',
-                          onPressed: () => context.pop(),
-                          icon: const Icon(Icons.arrow_back),
-                          color: const Color(0xFFD4AF37),
-                        ),
-                      ),
+                      // Positioned(
+                      //   top: 8,
+                      //   left: 8,
+                      //   child: IconButton(
+                      //     tooltip: '戻る',
+                      //     onPressed: () => context.pop(),
+                      //     icon: const Icon(Icons.arrow_back),
+                      //     color: const Color(0xFFD4AF37),
+                      //   ),
+                      // ),
                       if (_rated != null)
                         Positioned(
                           top: 8,
@@ -713,14 +739,18 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(
-                                    opponent.messageContent,
-                                    style: TextStyle(
-                                      color: Colors.grey[300],
-                                      fontSize: 14,
-                                      height: 1.4,
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: Text(
+                                      opponent.messageContent,
+                                      style: TextStyle(
+                                        color: Colors.grey[300],
+                                        fontSize: 14,
+                                        height: 1.4,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      softWrap: true,
                                     ),
-                                    textAlign: TextAlign.center,
                                   ),
                                 ],
                               ),
@@ -855,6 +885,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
     }
 
     return ListView.builder(
+      controller: _historyScrollController,
       padding: const EdgeInsets.all(16),
       itemCount: history.length,
       itemBuilder: (context, index) {
