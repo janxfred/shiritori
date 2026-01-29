@@ -5,6 +5,7 @@ import {
   checkLoginStreakTitles,
 } from "../../domain/services/TitleAchievementService";
 import { checkAndRecoverSoul } from "../../domain/services/SoulRecoveryService";
+import { checkAndResetWeeklyMission } from "../../domain/services/WeeklyMissionService";
 import { signAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
 import { ICON_CATALOG } from "../../lib/icon_catalog";
@@ -387,6 +388,9 @@ export default async function (fastify: ServerInstance) {
 
         // 連続ログイン称号チェック
         await checkLoginStreakTitles(tx, user.id, newConsecutiveLoginDays);
+
+        // ウィークリーミッションのリセットチェック
+        await checkAndResetWeeklyMission(tx, user.id);
 
         // ユーザー情報を更新
         const updatedUser = await tx.user.update({

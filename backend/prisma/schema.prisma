@@ -210,6 +210,12 @@ model UserStats {
   currentLoseStreak    Int @default(0) @map("current_lose_streak")
   aiMatchCount         Int @default(0) @map("ai_match_count")
 
+  // ウィークリーミッション用
+  weeklyBattleCount    Int @default(0) @map("weekly_battle_count")
+  weeklyBattleReward2  Boolean @default(false) @map("weekly_battle_reward_2")
+  weeklyBattleReward5  Boolean @default(false) @map("weekly_battle_reward_5")
+  weeklyResetDate      DateTime? @map("weekly_reset_date")
+
   @@map("user_stats")
 }
 

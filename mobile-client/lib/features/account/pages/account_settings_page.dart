@@ -183,6 +183,16 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     }
   }
 
+  Future<void> _openExternalUrl(String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('URLを開けませんでした')),
+      );
+    }
+  }
+
   /// サブスクリプション情報を取得
   Future<void> _loadSubscriptionInfo() async {
     if (_loadingSubscription) return;
@@ -767,6 +777,22 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                     title: const Text('お問い合わせ'),
                     trailing: const Icon(Icons.open_in_new),
                     onTap: _openInquiryForm,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: ListTile(
+                    title: const Text('サクッとゲーム'),
+                    trailing: const Icon(Icons.open_in_new),
+                    onTap: () => _openExternalUrl('https://play.google.com/store/apps/details?id=com.JanFred.Connect4'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: ListTile(
+                    title: const Text('物語への没入'),
+                    trailing: const Icon(Icons.open_in_new),
+                    onTap: () => _openExternalUrl('https://madamisujan.booth.pm/'),
                   ),
                 ),
                     ],

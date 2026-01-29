@@ -77,6 +77,27 @@ class GameApi {
     }
     return Exception('通信エラーが発生しました: ${e.message}');
   }
+
+  /// AI対戦結果を記録（ウィークリーミッション・称号用）
+  Future<void> recordAiMatch({
+    required String token,
+    required String result,
+    List<String>? aiCapturedChars,
+  }) async {
+    try {
+      await _dio.post(
+        '/api/game/record-ai-match',
+        data: {
+          'result': result,
+          if (aiCapturedChars != null) 'aiCapturedChars': aiCapturedChars,
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+    } on DioException catch (e) {
+      // エラーでもゲーム進行には影響させない
+      print('recordAiMatch error: ${e.message}');
+    }
+  }
 }
 
 

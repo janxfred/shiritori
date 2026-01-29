@@ -73,4 +73,6 @@ dependencies {
     // Firebase (BOM)
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-analytics")
+    // SplashScreen API（Android 12以降対応）
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }

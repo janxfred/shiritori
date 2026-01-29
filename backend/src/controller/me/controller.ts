@@ -3,7 +3,10 @@ import { normalizeIconImageUrl } from "../../lib/asset_url";
 import { verifyAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
 import { ICON_CATALOG } from "../../lib/icon_catalog";
+import { MESSAGE_CATALOG } from "../../lib/message_catalog";
+import { TITLE_CATALOG } from "../../lib/title_catalog";
 import { checkAndRecoverSoul } from "../../domain/services/SoulRecoveryService";
+import { checkCompletionTitle } from "../../domain/services/TitleAchievementService";
 import {
   errorResponseSchema,
   getIconCatalogResponseSchema,
@@ -302,10 +305,30 @@ export default async function (fastify: ServerInstance) {
         select: { result: true, createdAt: true },
       });
 
+      // 過去30試合の勝率を計算
+      const past30Matches = await prisma.matchHistory.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        select: { result: true },
+      });
+
+      let past30WinRate: number | null = null;
+      if (past30Matches.length > 0) {
+        const wins = past30Matches.filter((m) => m.result === "win").length;
+        past30WinRate = (wins / past30Matches.length) * 100;
+      }
+
       return reply.send({
         message: "プロフィールを更新しました",
         user: formatMe({
           ...user,
+          stats: user.stats
+            ? {
+                ...user.stats,
+                past30WinRate,
+              }
+            : null,
           lastRatingDelta: lastMatch
             ? ratingDeltaFromResult(lastMatch.result as "win" | "loss" | "draw")
             : null,
@@ -372,6 +395,20 @@ export default async function (fastify: ServerInstance) {
         select: { result: true, createdAt: true },
       });
 
+      // 過去30試合の勝率を計算
+      const past30Matches = await prisma.matchHistory.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        select: { result: true },
+      });
+
+      let past30WinRate: number | null = null;
+      if (past30Matches.length > 0) {
+        const wins = past30Matches.filter((m) => m.result === "win").length;
+        past30WinRate = (wins / past30Matches.length) * 100;
+      }
+
       const message = user.isSubscriber
         ? "魂を全回復しました（プレミアム特典）"
         : "魂を1回復しました";
@@ -380,6 +417,12 @@ export default async function (fastify: ServerInstance) {
         message,
         user: formatMe({
           ...user,
+          stats: user.stats
+            ? {
+                ...user.stats,
+                past30WinRate,
+              }
+            : null,
           lastRatingDelta: lastMatch
             ? ratingDeltaFromResult(lastMatch.result as "win" | "loss" | "draw")
             : null,
@@ -471,6 +514,20 @@ export default async function (fastify: ServerInstance) {
           orderBy: { obtainedAt: "asc" },
         }),
       ]);
+
+      // コンプ率を計算してチェック（90%達成で称号付与）
+      const iconCompletionRate = (icons.length / ICON_CATALOG.length) * 100;
+      const titleCompletionRate = (titles.length / TITLE_CATALOG.length) * 100;
+      const messageCompletionRate =
+        (messages.length / MESSAGE_CATALOG.length) * 100;
+
+      await checkCompletionTitle(
+        prisma,
+        payload.userId,
+        iconCompletionRate,
+        titleCompletionRate,
+        messageCompletionRate,
+      );
 
       return reply.send({
         equipped: {

@@ -266,6 +266,9 @@ class _GamePageState extends ConsumerState<GamePage>
           _showGameOverModal = true;
         });
         _timer?.cancel();
+        // AI対戦結果を記録
+        final result = winner == 'player' ? 'win' : (winner == 'ai' ? 'loss' : 'draw');
+        _recordAiMatchResult(result);
       }
     } catch (_) {
       // 通信失敗時は握り潰す（ゲーム進行は継続）
@@ -315,6 +318,21 @@ class _GamePageState extends ConsumerState<GamePage>
   void _resetTurnTimer() {
     _localTurnStartedAt = DateTime.now();
     _remainingTimeMs.value = timeLimitMs;
+  }
+
+  /// AI対戦結果を記録（ウィークリーミッション・称号用）
+  Future<void> _recordAiMatchResult(String result) async {
+    final session = ref.read(authControllerProvider).valueOrNull;
+    // ログイン中のみ記録
+    if (session != null) {
+      await _api.recordAiMatch(
+        token: session.token,
+        result: result,
+        aiCapturedChars: _session?.aiCapturedChars,
+      );
+      // ウィークリーミッション報酬が付与された可能性があるため、プレゼント数を再取得
+      _fetchUnclaimedPresentCount();
+    }
   }
 
   /// ゲーム開始
@@ -380,6 +398,9 @@ class _GamePageState extends ConsumerState<GamePage>
           _showGameOverModal = true;
         });
         _timer?.cancel();
+        // AI対戦結果を記録
+        final result = response.winner == 'player' ? 'win' : (response.winner == 'ai' ? 'loss' : 'draw');
+        _recordAiMatchResult(result);
         return;
       }
 
@@ -408,6 +429,8 @@ class _GamePageState extends ConsumerState<GamePage>
             _showGameOverModal = true;
           });
           _timer?.cancel();
+          // AI対戦結果を記録（AI勝利 = プレイヤー敗北）
+          _recordAiMatchResult('loss');
         }
       } else {
         setState(() {
