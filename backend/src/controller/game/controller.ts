@@ -19,6 +19,7 @@ import {
   checkTotalWinsTitles,
   checkWinStreakTitles,
 } from "../../domain/services/TitleAchievementService";
+import { incrementWeeklyBattleAndCheckBonus } from "../../domain/services/WeeklyMissionService";
 import { getDictionarySize } from "../../infrastructure/DictionaryRepository";
 import {
   createSession,
@@ -431,6 +432,9 @@ export default async function (fastify: ServerInstance) {
           );
           titles.push(...transcenderTitles);
         }
+
+        // ウィークリーミッション（対戦カウント）
+        await incrementWeeklyBattleAndCheckBonus(tx, user.id);
 
         return titles;
       });

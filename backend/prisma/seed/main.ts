@@ -45,34 +45,34 @@ async function main() {
 
   await prisma.title.upsert({
     where: { id: titleIds[0] },
-    update: {},
+    update: { condition: "デフォルト" },
     create: {
       id: titleIds[0],
       name: "新米の契約者",
       description: "魔界へようこそ。",
-      condition: "default",
+      condition: "デフォルト",
     },
   });
 
   await prisma.title.upsert({
     where: { id: titleIds[1] },
-    update: {},
+    update: { condition: "デフォルト" },
     create: {
       id: titleIds[1],
       name: "言霊の欠片",
       description: "まだ小さな力。",
-      condition: "default",
+      condition: "デフォルト",
     },
   });
 
   await prisma.title.upsert({
     where: { id: titleIds[2] },
-    update: {},
+    update: { condition: "デフォルト" },
     create: {
       id: titleIds[2],
       name: "沈黙の観測者",
       description: "言葉の行方を見届ける者。",
-      condition: "default",
+      condition: "デフォルト",
     },
   });
 

@@ -171,6 +171,48 @@ export const MESSAGE_CATALOG: readonly MessageCatalogEntry[] = [
     condition: "ガチャで獲得",
     rarity: 3,
   },
+  {
+    id: "msg_gacha_27",
+    content: "お前も神にならないか？",
+    condition: "ガチャで獲得",
+    rarity: 3,
+  },
+  {
+    id: "msg_gacha_28",
+    content: "お前は金持ちにならないのか？",
+    condition: "ガチャで獲得",
+    rarity: 2,
+  },
+  {
+    id: "msg_gacha_29",
+    content: "わが語彙に一片の悔いなし!!",
+    condition: "ガチャで獲得",
+    rarity: 3,
+  },
+  {
+    id: "msg_gacha_30",
+    content: "お前は今まで食ったパンの枚数を覚えているのか？",
+    condition: "ガチャで獲得",
+    rarity: 3,
+  },
+  {
+    id: "msg_gacha_31",
+    content: "狡猾にいこう、悪魔らしく。",
+    condition: "ガチャで獲得",
+    rarity: 2,
+  },
+  {
+    id: "msg_gacha_32",
+    content: "初めまして。そしてさようなら。",
+    condition: "ガチャで獲得",
+    rarity: 2,
+  },
+  {
+    id: "msg_gacha_33",
+    content: "悪魔風情が。",
+    condition: "ガチャで獲得",
+    rarity: 2,
+  },
 ] as const;
 
 export const MESSAGE_IDS: readonly string[] = MESSAGE_CATALOG.map((x) => x.id);

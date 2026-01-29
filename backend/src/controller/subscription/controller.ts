@@ -1,4 +1,5 @@
 import { getPrisma, isDatabaseConfigured } from "../../database";
+import { checkPremiumSubscriberTitle } from "../../domain/services/TitleAchievementService";
 import { verifyAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
 import {
@@ -49,9 +50,18 @@ export default async function (fastify: ServerInstance) {
       const prisma = getPrisma();
       const { isActive } = request.body;
 
-      const user = await prisma.user.update({
-        where: { id: payload.userId },
-        data: { isSubscriber: isActive },
+      const user = await prisma.$transaction(async (tx) => {
+        const updatedUser = await tx.user.update({
+          where: { id: payload.userId },
+          data: { isSubscriber: isActive },
+        });
+
+        // プレミアム加入時に称号付与
+        if (isActive) {
+          await checkPremiumSubscriberTitle(tx, payload.userId);
+        }
+
+        return updatedUser;
       });
 
       return reply.send({

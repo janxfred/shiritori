@@ -7,6 +7,29 @@ export type TitleCatalogEntry = {
 };
 
 export const TITLE_CATALOG: readonly TitleCatalogEntry[] = [
+  // ========== デフォルト称号（初期所持） ==========
+  {
+    id: "title_main_01",
+    name: "新米の契約者",
+    description: "魔界へようこそ。",
+    condition: "デフォルト",
+    fromGacha: false,
+  },
+  {
+    id: "title_sub_01",
+    name: "言霊の欠片",
+    description: "まだ小さな力。",
+    condition: "デフォルト",
+    fromGacha: false,
+  },
+  {
+    id: "title_sub_02",
+    name: "沈黙の観測者",
+    description: "言葉の行方を見届ける者。",
+    condition: "デフォルト",
+    fromGacha: false,
+  },
+
   // ========== ガチャから獲得可能な称号 ==========
   {
     id: "title_beginner",
@@ -183,9 +206,44 @@ export const TITLE_CATALOG: readonly TitleCatalogEntry[] = [
     condition: "相手に「ず、る、ー」全てを取られて勝利した際に獲得",
     fromGacha: false,
   },
+
+  // コンプ率系
+  {
+    id: "title_completion_90",
+    name: "我、不足なし",
+    description: "全てのコンプ率が90%を超えた者",
+    condition:
+      "全てのコンプ率（アイコン・称号・メッセージ）が90%を超えた際に獲得",
+    fromGacha: false,
+  },
+
+  // 勝率系
+  {
+    id: "title_win_rate_90",
+    name: "天才",
+    description: "過去30戦で勝率90%を超えた者",
+    condition: "過去30戦の勝率が90%を超えた際に獲得",
+    fromGacha: false,
+  },
+  {
+    id: "title_win_rate_95",
+    name: "神",
+    description: "過去30戦で勝率95%を超えた者",
+    condition: "過去30戦の勝率が95%を超えた際に獲得",
+    fromGacha: false,
+  },
+
+  // プレミアム系
+  {
+    id: "title_premium_subscriber",
+    name: "リアルに金持ち",
+    description: "プレミアムプランに加入した者",
+    condition: "プレミアムプランに加入した際に獲得",
+    fromGacha: false,
+  },
 ] as const;
 
 export const TITLE_IDS: readonly string[] = TITLE_CATALOG.map((x) => x.id);
 export const GACHA_TITLE_IDS: readonly string[] = TITLE_CATALOG.filter(
-  (x) => x.fromGacha
+  (x) => x.fromGacha,
 ).map((x) => x.id);

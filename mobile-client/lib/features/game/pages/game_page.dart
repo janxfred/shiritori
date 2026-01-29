@@ -266,6 +266,9 @@ class _GamePageState extends ConsumerState<GamePage>
           _showGameOverModal = true;
         });
         _timer?.cancel();
+        // AI対戦結果を記録
+        final result = winner == 'player' ? 'win' : (winner == 'ai' ? 'loss' : 'draw');
+        _recordAiMatchResult(result);
       }
     } catch (_) {
       // 通信失敗時は握り潰す（ゲーム進行は継続）
@@ -315,6 +318,21 @@ class _GamePageState extends ConsumerState<GamePage>
   void _resetTurnTimer() {
     _localTurnStartedAt = DateTime.now();
     _remainingTimeMs.value = timeLimitMs;
+  }
+
+  /// AI対戦結果を記録（ウィークリーミッション・称号用）
+  Future<void> _recordAiMatchResult(String result) async {
+    final session = ref.read(authControllerProvider).valueOrNull;
+    // ログイン中のみ記録
+    if (session != null) {
+      await _api.recordAiMatch(
+        token: session.token,
+        result: result,
+        aiCapturedChars: _session?.aiCapturedChars,
+      );
+      // ウィークリーミッション報酬が付与された可能性があるため、プレゼント数を再取得
+      _fetchUnclaimedPresentCount();
+    }
   }
 
   /// ゲーム開始
@@ -380,6 +398,9 @@ class _GamePageState extends ConsumerState<GamePage>
           _showGameOverModal = true;
         });
         _timer?.cancel();
+        // AI対戦結果を記録
+        final result = response.winner == 'player' ? 'win' : (response.winner == 'ai' ? 'loss' : 'draw');
+        _recordAiMatchResult(result);
         return;
       }
 
@@ -408,6 +429,8 @@ class _GamePageState extends ConsumerState<GamePage>
             _showGameOverModal = true;
           });
           _timer?.cancel();
+          // AI対戦結果を記録（AI勝利 = プレイヤー敗北）
+          _recordAiMatchResult('loss');
         }
       } else {
         setState(() {
@@ -506,7 +529,7 @@ class _GamePageState extends ConsumerState<GamePage>
                       child: ref.watch(authControllerProvider).maybeWhen(
                         data: (session) => session == null
                             ? ElevatedButton.icon(
-                                onPressed: () => context.push('/account'),
+                                onPressed: () => context.push('/login'),
                                 label: const Text('ログイン'),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFD4AF37),
@@ -718,7 +741,7 @@ class _GamePageState extends ConsumerState<GamePage>
                           children: [
                             const Center(
                               child: Text(
-                                '【ルール】',
+                                '【ルール〜相手の使った文字は使えない〜】',
                                 style: TextStyle(
                                   color: Color(0xFFD4AF37),
                                   fontSize: 14,
@@ -732,11 +755,11 @@ class _GamePageState extends ConsumerState<GamePage>
 〜主な契約事〜
 • 初めて使った文字を「確保」する
 • 相手の確保文字は使用不可
-• 確保文字が少ない方が勝利
+• 10ターン終了時、確保文字が少ない方が勝利
 
 〜その他の契約事〜
 • お手つき2回で即敗北
-• 1ターン40秒で10ターン制
+• 1ターン40秒
 • 小さい文字は大きい文字と同一となる
 • 悪魔辞書にある一般的単語のみ使用可
                               ''',
@@ -970,9 +993,13 @@ class _GamePageState extends ConsumerState<GamePage>
           content: SingleChildScrollView(
             child: Text(
               '''
+【初心者向けご説明】
+• このゲームは「しりとり」をベースにした対戦型ゲームです。プレイヤーは相手が使用した文字は使えません。
+• まずは初級AIから挑戦してみてください。
+
 【辞書に無い単語は？】
-専門用語、人名、商品名、動詞、略語、俗語、複合語、公共良俗に反する言葉、マニアックな地名等。
-見つけたら、あなただけのラッキーなので、是非使ってみてください。
+• 専門用語、人名、商品名、動詞、略語、俗語、複合語、公共良俗に反する言葉、マニアックな地名等。
+• 見つけたら、あなただけのラッキーなので、是非使ってみてください。
 
 【魂とは？】
 ・対人戦（PvP）を1回行うごとに魂を1消費します。
@@ -980,6 +1007,19 @@ class _GamePageState extends ConsumerState<GamePage>
 
 【コインとは？】
 ・召喚（ガチャ）で使用します。対人戦の勝利で+4コイン、敗北で+1コイン獲得できます。
+
+【称号とは？】
+・条件達成ごとに獲得できます。アカウント設定画面にある、称号一覧画面から、獲得条件を確認できます。
+
+【ウィークリーミッションもある？】
+・はい。毎週 AI戦含む累計対戦数が2回、5回に達した場合、コイン報酬が獲得できます。この文言を見つけたあなただけの秘密です。
+
+【お問い合わせ・ご意見・不具合報告について】
+・アプリ内の「お問い合わせ」からご連絡ください。皆様からのご意見をお待ちしております。
+
+【お得情報】
+・AI戦をすることで、効果的な語句や戦略を学べるかも！
+
 ''',
               style: const TextStyle(height: 1.4),
             ),
@@ -1529,7 +1569,7 @@ class _GamePageState extends ConsumerState<GamePage>
                       fontSize: 18,
                     ),
                     decoration: InputDecoration(
-                      hintText: 'ひらがなで入力...',
+                      hintText: '注意！ひらがなで入力！',
                       hintStyle: TextStyle(color: Colors.grey[600]),
                       filled: true,
                       fillColor: const Color(0xFF1E1E1E),
@@ -1688,11 +1728,11 @@ class _GamePageState extends ConsumerState<GamePage>
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildLevelSelectButton('Lv.1', AiLevel.easy),
+                _buildLevelSelectButton('初球', AiLevel.easy),
                 const SizedBox(width: 6),
-                _buildLevelSelectButton('Lv.2', AiLevel.normal),
+                _buildLevelSelectButton('中級', AiLevel.normal),
                 const SizedBox(width: 6),
-                _buildLevelSelectButton('Lv.3', AiLevel.hard),
+                _buildLevelSelectButton('上級', AiLevel.hard),
               ],
             ),
             const SizedBox(height: 12),

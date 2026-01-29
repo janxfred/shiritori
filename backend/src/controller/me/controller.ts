@@ -3,7 +3,10 @@ import { normalizeIconImageUrl } from "../../lib/asset_url";
 import { verifyAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
 import { ICON_CATALOG } from "../../lib/icon_catalog";
+import { MESSAGE_CATALOG } from "../../lib/message_catalog";
+import { TITLE_CATALOG } from "../../lib/title_catalog";
 import { checkAndRecoverSoul } from "../../domain/services/SoulRecoveryService";
+import { checkCompletionTitle } from "../../domain/services/TitleAchievementService";
 import {
   errorResponseSchema,
   getIconCatalogResponseSchema,
@@ -81,7 +84,16 @@ function formatMe(user: {
     isWinCountPublic: user.isWinCountPublic,
     isWinRatePublic: user.isWinRatePublic,
     isStreakPublic: user.isStreakPublic,
-    stats: user.stats,
+    stats: user.stats
+      ? {
+          totalWins: user.stats.totalWins,
+          totalLosses: user.stats.totalLosses,
+          totalDraws: user.stats.totalDraws,
+          currentStreak: user.stats.currentStreak,
+          maxStreak: user.stats.maxStreak,
+          past30WinRate: user.stats.past30WinRate ?? null,
+        }
+      : null,
     lastRatingDelta: user.lastRatingDelta,
     lastMatchAt: user.lastMatchAt,
   };
@@ -257,29 +269,35 @@ export default async function (fastify: ServerInstance) {
             .send({ message: `その称号は所持していません (${slotKey})` });
       }
 
-      const user = await prisma.user.update({
-        where: { id: payload.userId },
-        data: {
-          ...(body.iconId ? { iconId: body.iconId } : {}),
-          ...(body.messageId ? { messageId: body.messageId } : {}),
-          ...(body.title1Id !== undefined ? { title1Id: body.title1Id } : {}),
-          ...(body.title2Id !== undefined ? { title2Id: body.title2Id } : {}),
-          ...(body.title3Id !== undefined ? { title3Id: body.title3Id } : {}),
-          ...(body.isRatingPublic !== undefined
-            ? { isRatingPublic: body.isRatingPublic }
-            : {}),
-          ...(body.isWinCountPublic !== undefined
-            ? { isWinCountPublic: body.isWinCountPublic }
-            : {}),
-          ...(body.isWinRatePublic !== undefined
-            ? { isWinRatePublic: body.isWinRatePublic }
-            : {}),
-          ...(body.isStreakPublic !== undefined
-            ? { isStreakPublic: body.isStreakPublic }
-            : {}),
-        },
-        include: { stats: true },
-      });
+      let user;
+      try {
+        user = await prisma.user.update({
+          where: { id: payload.userId },
+          data: {
+            ...(body.iconId ? { iconId: body.iconId } : {}),
+            ...(body.messageId ? { messageId: body.messageId } : {}),
+            ...(body.title1Id !== undefined ? { title1Id: body.title1Id } : {}),
+            ...(body.title2Id !== undefined ? { title2Id: body.title2Id } : {}),
+            ...(body.title3Id !== undefined ? { title3Id: body.title3Id } : {}),
+            ...(body.isRatingPublic !== undefined
+              ? { isRatingPublic: body.isRatingPublic }
+              : {}),
+            ...(body.isWinCountPublic !== undefined
+              ? { isWinCountPublic: body.isWinCountPublic }
+              : {}),
+            ...(body.isWinRatePublic !== undefined
+              ? { isWinRatePublic: body.isWinRatePublic }
+              : {}),
+            ...(body.isStreakPublic !== undefined
+              ? { isStreakPublic: body.isStreakPublic }
+              : {}),
+          },
+          include: { stats: true },
+        });
+      } catch (e) {
+        console.error("[updateMe] Failed to update user:", e);
+        throw e;
+      }
 
       const lastMatch = await prisma.matchHistory.findFirst({
         where: { userId: user.id },
@@ -287,10 +305,30 @@ export default async function (fastify: ServerInstance) {
         select: { result: true, createdAt: true },
       });
 
+      // 過去30試合の勝率を計算
+      const past30Matches = await prisma.matchHistory.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        select: { result: true },
+      });
+
+      let past30WinRate: number | null = null;
+      if (past30Matches.length > 0) {
+        const wins = past30Matches.filter((m) => m.result === "win").length;
+        past30WinRate = (wins / past30Matches.length) * 100;
+      }
+
       return reply.send({
         message: "プロフィールを更新しました",
         user: formatMe({
           ...user,
+          stats: user.stats
+            ? {
+                ...user.stats,
+                past30WinRate,
+              }
+            : null,
           lastRatingDelta: lastMatch
             ? ratingDeltaFromResult(lastMatch.result as "win" | "loss" | "draw")
             : null,
@@ -357,6 +395,20 @@ export default async function (fastify: ServerInstance) {
         select: { result: true, createdAt: true },
       });
 
+      // 過去30試合の勝率を計算
+      const past30Matches = await prisma.matchHistory.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        select: { result: true },
+      });
+
+      let past30WinRate: number | null = null;
+      if (past30Matches.length > 0) {
+        const wins = past30Matches.filter((m) => m.result === "win").length;
+        past30WinRate = (wins / past30Matches.length) * 100;
+      }
+
       const message = user.isSubscriber
         ? "魂を全回復しました（プレミアム特典）"
         : "魂を1回復しました";
@@ -365,6 +417,12 @@ export default async function (fastify: ServerInstance) {
         message,
         user: formatMe({
           ...user,
+          stats: user.stats
+            ? {
+                ...user.stats,
+                past30WinRate,
+              }
+            : null,
           lastRatingDelta: lastMatch
             ? ratingDeltaFromResult(lastMatch.result as "win" | "loss" | "draw")
             : null,
@@ -456,6 +514,20 @@ export default async function (fastify: ServerInstance) {
           orderBy: { obtainedAt: "asc" },
         }),
       ]);
+
+      // コンプ率を計算してチェック（90%達成で称号付与）
+      const iconCompletionRate = (icons.length / ICON_CATALOG.length) * 100;
+      const titleCompletionRate = (titles.length / TITLE_CATALOG.length) * 100;
+      const messageCompletionRate =
+        (messages.length / MESSAGE_CATALOG.length) * 100;
+
+      await checkCompletionTitle(
+        prisma,
+        payload.userId,
+        iconCompletionRate,
+        titleCompletionRate,
+        messageCompletionRate,
+      );
 
       return reply.send({
         equipped: {

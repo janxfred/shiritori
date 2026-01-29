@@ -5,6 +5,7 @@ import {
   checkLoginStreakTitles,
 } from "../../domain/services/TitleAchievementService";
 import { checkAndRecoverSoul } from "../../domain/services/SoulRecoveryService";
+import { checkAndResetWeeklyMission } from "../../domain/services/WeeklyMissionService";
 import { signAuthToken } from "../../lib/auth";
 import type { ServerInstance } from "../../lib/fastify";
 import { ICON_CATALOG } from "../../lib/icon_catalog";
@@ -21,7 +22,7 @@ import {
 const LOGIN_BONUS_COINS_FREE = 3;
 const LOGIN_BONUS_COINS_PREMIUM = 20;
 const LOGIN_BONUS_INTERVAL_HOURS = 24;
-const MAX_LOGIN_BONUS_STACK = 3;
+const MAX_LOGIN_BONUS_STACK = 2;
 
 async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
   // アイコンマスタ
@@ -83,18 +84,6 @@ async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
       }),
     ),
   );
-
-  // デフォルト称号（新米の契約者）
-  await prisma.title.upsert({
-    where: { id: "title_main_01" },
-    update: {},
-    create: {
-      id: "title_main_01",
-      name: "新米の契約者",
-      description: "魔界へようこそ。",
-      condition: "default",
-    },
-  });
 }
 
 function formatAuthUser(user: {
@@ -387,6 +376,9 @@ export default async function (fastify: ServerInstance) {
 
         // 連続ログイン称号チェック
         await checkLoginStreakTitles(tx, user.id, newConsecutiveLoginDays);
+
+        // ウィークリーミッションのリセットチェック
+        await checkAndResetWeeklyMission(tx, user.id);
 
         // ユーザー情報を更新
         const updatedUser = await tx.user.update({

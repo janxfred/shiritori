@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:go_router/go_router.dart';
@@ -42,7 +43,10 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
 
   static const _rewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
   static const _inquiryUrl = 'https://forms.gle/LPXFy4RXbQdV3LCg7';
-  static const _subscriptionPackageIdentifier = 'premium_subscription:monthly-standard'; // Google Play StoreのProduct ID
+  // RevenueCatのパッケージ識別子（$rc_monthlyは月額サブスクリプションの標準識別子）
+  // これはRevenueCatダッシュボードでのPackage設定に依存
+  // ストア商品IDではなく、RevenueCatのパッケージ識別子を使用
+  static const _subscriptionPackageIdentifier = r'$rc_monthly';
 
   String _resolveImageUrl(String url) {
     final trimmed = url.trim();
@@ -183,6 +187,16 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     }
   }
 
+  Future<void> _openExternalUrl(String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('URLを開けませんでした')),
+      );
+    }
+  }
+
   /// サブスクリプション情報を取得
   Future<void> _loadSubscriptionInfo() async {
     if (_loadingSubscription) return;
@@ -232,10 +246,55 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('プレミアムプランに加入しました')),
       );
+    } on PlatformException catch (e) {
+      // RevenueCatのエラーハンドリング
+      if (!mounted) return;
+      
+      // エラーコードに基づいてメッセージを分岐
+      final errorCode = PurchasesErrorHelper.getErrorCode(e);
+      String message;
+      switch (errorCode) {
+        case PurchasesErrorCode.purchaseCancelledError:
+          // ユーザーがキャンセルした場合は何も表示しない
+          return;
+        case PurchasesErrorCode.storeProblemError:
+          message = 'ストアに問題が発生しました。しばらく待ってから再試行してください。';
+          break;
+        case PurchasesErrorCode.purchaseNotAllowedError:
+          message = 'この端末では購入が許可されていません。';
+          break;
+        case PurchasesErrorCode.purchaseInvalidError:
+          message = '購入情報が無効です。';
+          break;
+        case PurchasesErrorCode.productNotAvailableForPurchaseError:
+          message = 'この商品は現在購入できません。';
+          break;
+        case PurchasesErrorCode.productAlreadyPurchasedError:
+          message = 'この商品はすでに購入済みです。「購入を復元」をお試しください。';
+          break;
+        case PurchasesErrorCode.networkError:
+          message = 'ネットワークエラーが発生しました。接続を確認してください。';
+          break;
+        case PurchasesErrorCode.configurationError:
+          message = '設定エラーが発生しました。アプリを再起動してください。';
+          break;
+        default:
+          message = '購入に失敗しました: ${e.message}';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     } catch (e) {
       if (!mounted) return;
+      // その他のエラー（パッケージが見つからない等）
+      final errorMessage = e.toString();
+      // エラーメッセージが長すぎる場合は短縮
+      final displayMessage = errorMessage.length > 100
+          ? '${errorMessage.substring(0, 100)}...'
+          : errorMessage;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('購入に失敗しました: $e')),
+        SnackBar(content: Text('購入に失敗しました: $displayMessage')),
       );
     } finally {
       if (mounted) setState(() => _purchasingSubscription = false);
@@ -767,6 +826,22 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                     title: const Text('お問い合わせ'),
                     trailing: const Icon(Icons.open_in_new),
                     onTap: _openInquiryForm,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: ListTile(
+                    title: const Text('サクッとゲーム'),
+                    trailing: const Icon(Icons.open_in_new),
+                    onTap: () => _openExternalUrl('https://play.google.com/store/apps/details?id=com.JanFred.Connect4'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: ListTile(
+                    title: const Text('物語への没入'),
+                    trailing: const Icon(Icons.open_in_new),
+                    onTap: () => _openExternalUrl('https://madamisujan.booth.pm/'),
                   ),
                 ),
                     ],

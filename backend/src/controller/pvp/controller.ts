@@ -5,8 +5,10 @@ import {
   checkLooseTranscenderTitle,
   checkRatingTitles,
   checkTotalWinsTitles,
+  checkWinRateTitles,
   checkWinStreakTitles,
 } from "../../domain/services/TitleAchievementService";
+import { incrementWeeklyBattleAndCheckBonus } from "../../domain/services/WeeklyMissionService";
 import { thinkNextWord } from "../../domain/services/AiBrainService";
 import { verifyAuthToken } from "../../lib/auth";
 import { type ServerInstance } from "../../lib/fastify";
@@ -414,6 +416,9 @@ async function commitRatedResultIfNeeded(params: {
     await checkLoseStreakTitles(prisma, p1.id, p1Next.currentLoseStreak);
     await checkTotalWinsTitles(prisma, p1.id, p1Next.totalWins);
 
+    // ウィークリーミッション（対戦カウント）- AI戦も含む
+    await incrementWeeklyBattleAndCheckBonus(prisma, p1.id);
+
     session.resultCommitted = true;
     await updatePvpSession(session);
 
@@ -502,6 +507,7 @@ async function commitRatedResultIfNeeded(params: {
     await checkWinStreakTitles(tx, p1.id, p1Next.currentStreak);
     await checkLoseStreakTitles(tx, p1.id, p1Next.currentLoseStreak);
     await checkTotalWinsTitles(tx, p1.id, p1Next.totalWins);
+    await checkWinRateTitles(tx, p1.id);
 
     // 称号チェック（プレイヤー2）
     await checkRatingTitles(tx, p2.id, updatedP2.rating);
@@ -509,6 +515,7 @@ async function commitRatedResultIfNeeded(params: {
     await checkWinStreakTitles(tx, p2.id, p2Next.currentStreak);
     await checkLoseStreakTitles(tx, p2.id, p2Next.currentLoseStreak);
     await checkTotalWinsTitles(tx, p2.id, p2Next.totalWins);
+    await checkWinRateTitles(tx, p2.id);
 
     // るーず超越チェック（「ず」「る」「ー」全て取られて勝利）
     if (p1Result === "win") {
@@ -519,6 +526,10 @@ async function commitRatedResultIfNeeded(params: {
       const opponentCapturedChars = Array.from(session.player1CapturedChars);
       await checkLooseTranscenderTitle(tx, p2.id, true, opponentCapturedChars);
     }
+
+    // ウィークリーミッション（対戦カウント）
+    await incrementWeeklyBattleAndCheckBonus(tx, p1.id);
+    await incrementWeeklyBattleAndCheckBonus(tx, p2.id);
 
     return { updatedP1, updatedP2 };
   });

@@ -119,7 +119,7 @@ export const errorResponseSchema = z.object({
 /** AI対戦結果記録リクエスト */
 export const recordAiMatchRequestSchema = z.object({
   result: z.enum(["win", "loss", "draw"]),
-  aiLevel: aiLevelSchema,
+  aiLevel: aiLevelSchema.optional(),
   aiCapturedChars: z.array(z.string()).optional(),
 });
 
@@ -131,6 +131,6 @@ export const recordAiMatchResponseSchema = z.object({
       titleId: z.string(),
       titleName: z.string(),
       description: z.string(),
-    })
+    }),
   ),
 });

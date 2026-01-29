@@ -61,8 +61,9 @@ class _GachaPageState extends ConsumerState<GachaPage> {
       final api = ref.read(gachaApiProvider);
       final status = await api.getStatus(token: session.token);
       
-      // 排出率一覧をソート
+      // 排出率一覧をソート（アイテムは除外）
       final sortedRates = List<GachaRateEntry>.from(status.rates)
+        ..removeWhere((e) => e is GachaItemRateEntry)
         ..sort((a, b) {
           // アイコンはNo.順
           if (a is GachaIconRateEntry && b is GachaIconRateEntry) {
@@ -269,10 +270,10 @@ class _GachaPageState extends ConsumerState<GachaPage> {
                           ...rates.map((e) {
                             final percent = (e.probability * 100).clamp(0, 100);
                             final label = switch (e) {
-                              final GachaIconRateEntry r => 'アイコンNo.${r.displayNumber}（★${r.rarity}）',
-                              final GachaMessageRateEntry r => 'メッセージ（★${r.rarity}） ${r.content}',
+                              final GachaIconRateEntry r => 'アイコンNo.${r.displayNumber}',
+                              final GachaMessageRateEntry r => 'メッセージ ${r.content}',
                               final GachaTitleRateEntry r => '称号 ${r.name}',
-                              final GachaItemRateEntry r => 'アイテム（★${r.rarity}） ${r.name}',
+                              final GachaItemRateEntry r => 'アイテム ${r.name}',
                             };
 
                             return Padding(
