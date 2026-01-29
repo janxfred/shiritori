@@ -993,9 +993,13 @@ class _GamePageState extends ConsumerState<GamePage>
           content: SingleChildScrollView(
             child: Text(
               '''
+【初心者向けご説明】
+• このゲームは「しりとり」をベースにした対戦型ゲームです。プレイヤーは相手が使用した文字は使えません。
+• まずは初級AIから挑戦してみてください。
+
 【辞書に無い単語は？】
-専門用語、人名、商品名、動詞、略語、俗語、複合語、公共良俗に反する言葉、マニアックな地名等。
-見つけたら、あなただけのラッキーなので、是非使ってみてください。
+• 専門用語、人名、商品名、動詞、略語、俗語、複合語、公共良俗に反する言葉、マニアックな地名等。
+• 見つけたら、あなただけのラッキーなので、是非使ってみてください。
 
 【魂とは？】
 ・対人戦（PvP）を1回行うごとに魂を1消費します。
@@ -1565,7 +1569,7 @@ class _GamePageState extends ConsumerState<GamePage>
                       fontSize: 18,
                     ),
                     decoration: InputDecoration(
-                      hintText: 'ひらがなで入力...',
+                      hintText: '注意！ひらがなで入力！',
                       hintStyle: TextStyle(color: Colors.grey[600]),
                       filled: true,
                       fillColor: const Color(0xFF1E1E1E),
@@ -1724,11 +1728,11 @@ class _GamePageState extends ConsumerState<GamePage>
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildLevelSelectButton('Lv.1', AiLevel.easy),
+                _buildLevelSelectButton('初球', AiLevel.easy),
                 const SizedBox(width: 6),
-                _buildLevelSelectButton('Lv.2', AiLevel.normal),
+                _buildLevelSelectButton('中級', AiLevel.normal),
                 const SizedBox(width: 6),
-                _buildLevelSelectButton('Lv.3', AiLevel.hard),
+                _buildLevelSelectButton('上級', AiLevel.hard),
               ],
             ),
             const SizedBox(height: 12),

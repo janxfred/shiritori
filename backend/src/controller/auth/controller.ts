@@ -84,18 +84,6 @@ async function ensureDefaultMasters(prisma: ReturnType<typeof getPrisma>) {
       }),
     ),
   );
-
-  // デフォルト称号（新米の契約者）
-  await prisma.title.upsert({
-    where: { id: "title_main_01" },
-    update: {},
-    create: {
-      id: "title_main_01",
-      name: "新米の契約者",
-      description: "魔界へようこそ。",
-      condition: "default",
-    },
-  });
 }
 
 function formatAuthUser(user: {
