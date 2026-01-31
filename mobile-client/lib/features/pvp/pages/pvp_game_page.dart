@@ -978,7 +978,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                     fontSize: 18,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'ひらがなで入力...',
+                    hintText: '注意！ひらがなで入力！',
                     helperText: isMyTurn ? null : '相手の手番です',
                     hintStyle: TextStyle(color: Colors.grey[600]),
                     filled: true,

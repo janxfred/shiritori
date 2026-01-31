@@ -440,6 +440,7 @@ export default async function (fastify: ServerInstance) {
   // AI偽装対戦エンドポイント
   // 対人マッチングに失敗した場合にフロントエンドから呼ばれる
   // AIレベル3の思考ロジックで対戦するが、UIは人間と対戦しているように見せる
+  // NOTE: Redis無しでも動作可能（セッションはメモリストアで管理）
   fastify.post(
     "/ai",
     {
@@ -456,11 +457,8 @@ export default async function (fastify: ServerInstance) {
       if (!isDatabaseConfigured()) {
         return reply.status(500).send({ message: "DB未設定" });
       }
-      if (!isMatchmakeRedisReady()) {
-        return reply
-          .status(500)
-          .send({ message: "マッチメイクサービス準備中" });
-      }
+      // NOTE: AI偽装対戦はRedis不要（セッションはメモリストアで管理）
+      // リアルタイムマッチングのみRedisが必要
 
       const prisma = getPrisma();
       const token = getBearerToken(request);

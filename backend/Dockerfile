@@ -30,6 +30,9 @@ COPY --from=builder /app/backend/prisma ./prisma/
 COPY --from=builder /app/backend/src ./src/
 COPY --from=builder /app/shiritori_list.json /app/shiritori_list.json
 
+# Static files (icons, etc.)
+COPY backend/static ./static/
+
 EXPOSE 8080
 
 CMD ["npm", "start"]

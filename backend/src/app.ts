@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fastifyAutoload from "@fastify/autoload";
 import fastifyCors from "@fastify/cors";
+import fastifyRateLimit from "@fastify/rate-limit";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
 import Fastify from "fastify";
@@ -64,6 +65,15 @@ export async function buildApp() {
     },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
+  });
+
+  // レートリミットの設定（DoS攻撃対策）
+  await app.register(fastifyRateLimit, {
+    max: 100, // 1分間に100リクエストまで
+    timeWindow: "1 minute",
+    errorResponseBuilder: () => ({
+      message: "リクエストが多すぎます。しばらく待ってから再試行してください。",
+    }),
   });
 
   // Swagger/OpenAPIの設定（本番以外）

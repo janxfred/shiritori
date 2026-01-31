@@ -166,9 +166,20 @@ async function findLoginUser(
 }
 
 export default async function (fastify: ServerInstance) {
+  // 認証エンドポイント用の厳しいレートリミット設定
+  const authRateLimitConfig = {
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: "15 minutes",
+      },
+    },
+  };
+
   fastify.post(
     "/signup",
     {
+      ...authRateLimitConfig,
       schema: {
         tags: ["Auth"],
         summary: "アカウント作成（名前+合言葉）",
@@ -254,6 +265,7 @@ export default async function (fastify: ServerInstance) {
   fastify.post(
     "/login",
     {
+      ...authRateLimitConfig,
       schema: {
         tags: ["Auth"],
         summary: "ログイン（ユーザーID/メール/名前 + 合言葉）",

@@ -347,6 +347,7 @@ export default async function (fastify: ServerInstance) {
         response: {
           200: rewardedAdResponseSchema,
           401: errorResponseSchema,
+          429: errorResponseSchema,
           503: errorResponseSchema,
         },
       },
@@ -364,6 +365,31 @@ export default async function (fastify: ServerInstance) {
       const payload = verifyAuthToken({ token });
       if (!payload)
         return reply.status(401).send({ message: "認証が必要です" });
+
+      // 1日の広告報酬上限チェック（悪用防止）
+      const DAILY_AD_REWARD_LIMIT = 20;
+      const today = new Date().toISOString().slice(0, 10);
+      const adRewardKey = `ad_${payload.userId}`;
+
+      // メモリ内でカウント（シンプルな実装）
+      const adRewardCountMap = (globalThis as Record<string, unknown>).__adRewardCount as Map<string, { count: number; date: string }> | undefined;
+      const adMap = adRewardCountMap ?? new Map<string, { count: number; date: string }>();
+      if (!adRewardCountMap) {
+        (globalThis as Record<string, unknown>).__adRewardCount = adMap;
+      }
+      const record = adMap.get(adRewardKey);
+
+      if (record && record.date === today && record.count >= DAILY_AD_REWARD_LIMIT) {
+        return reply.status(429).send({
+          message: "本日の広告報酬上限（20回）に達しました。",
+        });
+      }
+
+      if (!record || record.date !== today) {
+        adMap.set(adRewardKey, { count: 1, date: today });
+      } else {
+        record.count++;
+      }
 
       const prisma = getPrisma();
 

@@ -18,6 +18,29 @@ function getBearerToken(request: {
   return token;
 }
 
+/** 1日の同期上限（悪用防止） */
+const DAILY_SYNC_LIMIT = 10;
+
+/** ユーザーごとの同期回数を追跡（メモリ内、リスタートでリセット） */
+const syncCountMap = new Map<string, { count: number; date: string }>();
+
+function checkSyncLimit(userId: string): boolean {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const record = syncCountMap.get(userId);
+
+  if (!record || record.date !== today) {
+    syncCountMap.set(userId, { count: 1, date: today });
+    return true;
+  }
+
+  if (record.count >= DAILY_SYNC_LIMIT) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+}
+
 export default async function (fastify: ServerInstance) {
   fastify.post(
     "/sync",
@@ -29,6 +52,7 @@ export default async function (fastify: ServerInstance) {
         response: {
           200: syncSubscriptionResponseSchema,
           401: errorResponseSchema,
+          429: errorResponseSchema,
           503: errorResponseSchema,
         },
       },
@@ -46,6 +70,13 @@ export default async function (fastify: ServerInstance) {
       const payload = verifyAuthToken({ token });
       if (!payload)
         return reply.status(401).send({ message: "認証が必要です" });
+
+      // 1日の同期上限チェック（悪用防止）
+      if (!checkSyncLimit(payload.userId)) {
+        return reply.status(429).send({
+          message: "本日の同期上限に達しました。明日再試行してください。",
+        });
+      }
 
       const prisma = getPrisma();
       const { isActive } = request.body;

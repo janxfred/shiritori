@@ -9,7 +9,6 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'features/game/pages/game_page.dart';
-import 'features/users/pages/user_list_page.dart';
 import 'features/account/pages/account_settings_page.dart';
 import 'features/auth/pages/login_page.dart';
 import 'features/auth/pages/signup_page.dart';
@@ -134,10 +133,6 @@ final _router = GoRouter(
     GoRoute(
       path: '/signup',
       builder: (context, state) => const SignupPage(),
-    ),
-    GoRoute(
-      path: '/users',
-      builder: (context, state) => const UserListPage(),
     ),
   ],
 );

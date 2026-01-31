@@ -35,26 +35,6 @@ class RankedApi {
     }
   }
 
-  Future<CreateMatchResponse> submitMatch({
-    required String userId,
-    required String opponentId,
-    required MatchResult result,
-  }) async {
-    try {
-      final res = await _dio.post(
-        '/api/matches',
-        data: {
-          'userId': userId,
-          'opponentId': opponentId,
-          'result': result,
-        },
-      );
-      return CreateMatchResponse.fromJson(res.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
   Exception _handleError(DioException e) {
     if (e.response != null) {
       final data = e.response?.data;
