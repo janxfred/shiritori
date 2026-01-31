@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { withAccelerate } from "@prisma/extension-accelerate";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
@@ -18,32 +19,39 @@ export function getPrisma(): InstanceType<typeof PrismaClient> {
   }
 
   if (!prisma) {
-    // 本番環境（Supabase等）ではSSL接続が必要
-    // 自己署名証明書を使用するDBでは rejectUnauthorized: false が必要
-    // connectionString内のsslmodeパラメータだけでは不十分なため、
-    // 明示的にpg.Poolを作成してSSL設定を確実に適用する
-    const isProduction = process.env.NODE_ENV === "production";
+    const connectionString = process.env.DATABASE_URL;
 
-    // connectionString からsslmodeパラメータを除去（pg.Poolのsslオプションと競合するため）
-    const connectionString = process.env.DATABASE_URL.replace(
-      /[?&]sslmode=[^&]*/g,
-      (match, offset, str) => (offset === str.indexOf("?") ? "?" : ""),
-    ).replace(/\?$/, "");
+    // Prisma Postgres (prisma+postgres://) はHTTPベースのAccelerate経由で接続
+    if (connectionString.startsWith("prisma+postgres://")) {
+      const client = new PrismaClient({
+        accelerateUrl: connectionString,
+      }).$extends(withAccelerate());
+      prisma = client as unknown as InstanceType<typeof PrismaClient>;
+    } else {
+      // 従来のPostgreSQL接続（Supabase等）の場合はpg.Pool経由
+      const isProduction = process.env.NODE_ENV === "production";
 
-    const pool = new pg.Pool({
-      connectionString,
-      ssl: isProduction
-        ? {
-            rejectUnauthorized: false,
-          }
-        : false,
-    });
+      // connectionString からsslmodeパラメータを除去（pg.Poolのsslオプションと競合するため）
+      const cleanedConnectionString = connectionString
+        .replace(/[?&]sslmode=[^&]*/g, (match, offset, str) =>
+          offset === str.indexOf("?") ? "?" : "",
+        )
+        .replace(/\?$/, "");
 
-    const adapter = new PrismaPg(pool);
-    prisma = new PrismaClient({
-      adapter,
-      // log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
-    });
+      const pool = new pg.Pool({
+        connectionString: cleanedConnectionString,
+        ssl: isProduction
+          ? {
+              rejectUnauthorized: false,
+            }
+          : false,
+      });
+
+      const adapter = new PrismaPg(pool);
+      prisma = new PrismaClient({
+        adapter,
+      });
+    }
   }
 
   return prisma;

@@ -5,6 +5,7 @@ WORKDIR /app/backend
 # Build context is repo root. Build with: docker build -f backend/Dockerfile .
 COPY backend/package*.json ./
 COPY backend/tsconfig.json ./
+COPY backend/prisma.config.ts ./
 COPY backend/prisma ./prisma/
 
 RUN npm ci
@@ -24,6 +25,7 @@ WORKDIR /app/backend
 
 COPY --from=builder /app/backend/package*.json ./
 COPY --from=builder /app/backend/node_modules ./node_modules/
+COPY --from=builder /app/backend/prisma.config.ts ./
 COPY --from=builder /app/backend/prisma ./prisma/
 COPY --from=builder /app/backend/src ./src/
 COPY --from=builder /app/shiritori_list.json /app/shiritori_list.json

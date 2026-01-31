@@ -31,6 +31,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
   MeUser? _me;
   InventoryResponse? _inventory;
   bool _busy = false;
+  String? _lastLoadedUserId; // 最後に読み込んだユーザーID
 
   RewardedAd? _rewardedAd;
   bool _loadingRewardedAd = false;
@@ -78,9 +79,19 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // 初回だけステータス取得
-    if (_status == null) {
-      _refresh();
+    final session = ref.read(authControllerProvider).valueOrNull;
+    final currentUserId = session?.user.id;
+    
+    // ユーザーが変わった場合、またはまだ読み込んでいない場合は状態をリセットしてリフレッシュ
+    if (currentUserId != _lastLoadedUserId) {
+      _status = null;
+      _me = null;
+      _inventory = null;
+      _emailController.clear();
+      _lastLoadedUserId = currentUserId;
+      if (currentUserId != null) {
+        _refresh();
+      }
     }
   }
 
@@ -559,8 +570,16 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
               onPressed: _busy
                   ? null
                   : () {
+                      // ローカル状態をクリア
+                      setState(() {
+                        _status = null;
+                        _me = null;
+                        _inventory = null;
+                        _emailController.clear();
+                      });
                       ref.read(authControllerProvider.notifier).logout();
-                      context.pop();
+                      // ホーム画面に遷移
+                      context.go('/');
                     },
               child: const Text('ログアウト'),
             ),

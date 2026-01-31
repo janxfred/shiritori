@@ -191,6 +191,15 @@ export default async function (fastify: ServerInstance) {
       await ensureDefaultMasters(prisma);
 
       const { name, password } = request.body;
+
+      // 重複名前チェック
+      const existingUsers = await prisma.user.findMany({ where: { name } });
+      if (existingUsers.length > 0) {
+        return reply.status(400).send({
+          message: "この名前は既に使用されています。別の名前を選んでください",
+        });
+      }
+
       const passwordHash = await bcrypt.hash(password, 10);
 
       const now = new Date();
