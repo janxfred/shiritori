@@ -21,6 +21,11 @@ class ApiClient {
       return fromEnv;
     }
 
+    // 本番ビルド（Release Mode）かつ .env がない場合は、ハードコードされた本番URLを使う
+    if (kReleaseMode) {
+      return 'https://shiritori-backend-398307942070.asia-northeast1.run.app';
+    }
+
     // エミュレータからlocalhostへアクセスする場合:
     // Android: 10.0.2.2
     // iOS Simulator: localhost
