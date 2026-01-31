@@ -10,6 +10,13 @@ class ApiClient {
   late final Dio _dio;
 
   static String get _baseUrl {
+    // 本番ビルド（Release Mode）では、ハードコードされた本番URLを最優先で使用する
+    // .envがバンドルされていても、誤ってlocalhost等が使われないようにするため
+    if (kReleaseMode) {
+      return 'https://shiritori-backend-398307942070.asia-northeast1.run.app';
+    }
+
+    // 開発モードのみ .env を参照する
     String? fromEnv;
     try {
       fromEnv = dotenv.env['API_BASE_URL']?.trim();
@@ -19,11 +26,6 @@ class ApiClient {
     }
     if (fromEnv != null && fromEnv.isNotEmpty) {
       return fromEnv;
-    }
-
-    // 本番ビルド（Release Mode）かつ .env がない場合は、ハードコードされた本番URLを使う
-    if (kReleaseMode) {
-      return 'https://shiritori-backend-398307942070.asia-northeast1.run.app';
     }
 
     // エミュレータからlocalhostへアクセスする場合:
