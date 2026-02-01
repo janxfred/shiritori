@@ -262,7 +262,7 @@ class _GamePageState extends ConsumerState<GamePage>
                 : 'ai');
         setState(() {
           _winner = winner;
-          _demonMessage = res.message ?? '戦意喪失…敗北だ。';
+          _demonMessage = res.message ?? '戦意喪失…敗北だ';
           _showGameOverModal = true;
         });
         _timer?.cancel();
@@ -1055,14 +1055,14 @@ class _GamePageState extends ConsumerState<GamePage>
         // 上部: 悪魔の顔と台詞 + 残り時間
         _buildDemonHeader(),
         
-        // 対戦者情報エリア（AI vs プレイヤー）
+        // 中部: LINE風チャット履歴
+        Expanded(child: _buildHistory()),
+        
+        // 対戦者情報エリア（確保文字エリアのすぐ上）
         if (session != null) _buildBattleInfo(session),
         
-        // 中部: 確保文字エリア
+        // 確保文字エリア（入力エリアのすぐ上）
         _buildCapturedCharsArea(),
-        
-        // 下部: LINE風チャット履歴
-        Expanded(child: _buildHistory()),
         
         // 最下部: 入力エリア
         _buildInputArea(),
@@ -1073,7 +1073,7 @@ class _GamePageState extends ConsumerState<GamePage>
   /// 悪魔ヘッダー（顔 + 台詞 + 残り時間）
   Widget _buildDemonHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF2D2D2D),
         border: Border(
@@ -1084,20 +1084,20 @@ class _GamePageState extends ConsumerState<GamePage>
         children: [
           // 悪魔の顔
           ClipRRect(
-            borderRadius: BorderRadius.circular(40),
+            borderRadius: BorderRadius.circular(28),
             child: Image.asset(
               'assets/悪魔.jpg',
-              width: 80,
-              height: 80,
+              width: 56,
+              height: 56,
               fit: BoxFit.cover,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           
           // 台詞
           Expanded(
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: const Color(0xFF1E1E1E),
                 borderRadius: BorderRadius.circular(12),
@@ -1107,14 +1107,14 @@ class _GamePageState extends ConsumerState<GamePage>
                 _isAiThinking ? '考え中...' : _demonMessage,
                 style: TextStyle(
                   color: Colors.grey[300],
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
-                maxLines: 3,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           
           // 残り時間
           ValueListenableBuilder<int>(
@@ -1127,13 +1127,13 @@ class _GamePageState extends ConsumerState<GamePage>
                     _formatTime(remainingMs),
                     style: TextStyle(
                       color: isLowTime ? Colors.red : const Color(0xFFD4AF37),
-                      fontSize: 28,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   Text(
                     'R${_session?.roundCount ?? 0}/${_session?.maxRounds ?? 10}',
-                    style: TextStyle(color: Colors.grey[200], fontSize: 15, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: Colors.grey[200], fontSize: 10, fontWeight: FontWeight.w500),
                   ),
                 ],
               );
@@ -1368,11 +1368,11 @@ class _GamePageState extends ConsumerState<GamePage>
     final aiChars = _session?.aiCapturedChars ?? [];
     
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: const Color(0xFF2D2D2D),
         border: Border(
-          bottom: BorderSide(color: Colors.grey[800]!),
+          top: BorderSide(color: Colors.grey[800]!),
         ),
       ),
       child: Column(
@@ -1385,23 +1385,22 @@ class _GamePageState extends ConsumerState<GamePage>
                 'あなたの確保した文字（${playerChars.length}文字）',
                 style: const TextStyle(
                   color: Color(0xFF026E14),
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
                 'お手付き${_session?.playerMistakeCount ?? 0}',
-                style: TextStyle(color: Colors.red[400], fontSize: 12),
+                style: TextStyle(color: Colors.red[400], fontSize: 10),
               ),
             ],
           ),
-          const SizedBox(height: 4),
           Text(
             playerChars.isEmpty ? '（なし）' : playerChars.join('、'),
-            style: TextStyle(color: Colors.grey[400], fontSize: 13),
+            style: TextStyle(color: Colors.grey[400], fontSize: 11),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
           
           // 悪魔の確保文字
           Row(
@@ -1410,21 +1409,20 @@ class _GamePageState extends ConsumerState<GamePage>
                 '悪魔の確保した文字（${aiChars.length}文字）',
                 style: const TextStyle(
                   color: Color(0xFFC70606),
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
                 'お手付き${_session?.aiMistakeCount ?? 0}',
-                style: TextStyle(color: Colors.red[400], fontSize: 12),
+                style: TextStyle(color: Colors.red[400], fontSize: 10),
               ),
             ],
           ),
-          const SizedBox(height: 4),
           Text(
             aiChars.isEmpty ? '（なし）' : aiChars.join('、'),
-            style: TextStyle(color: Colors.grey[400], fontSize: 13),
+            style: TextStyle(color: Colors.grey[400], fontSize: 11),
           ),
         ],
       ),
@@ -1451,7 +1449,7 @@ class _GamePageState extends ConsumerState<GamePage>
 
     return ListView.builder(
       controller: _historyScrollController,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       itemCount: displayHistory.length,
       itemBuilder: (context, index) {
         final entry = displayHistory[index];
@@ -1460,8 +1458,8 @@ class _GamePageState extends ConsumerState<GamePage>
         return Align(
           alignment: isPlayer ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            margin: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: isPlayer
                   ? const Color(0xFF1B5E20).withValues(alpha: 204)
@@ -1483,7 +1481,7 @@ class _GamePageState extends ConsumerState<GamePage>
                   entry.word,
                   style: TextStyle(
                     color: entry.isValid ? Colors.white : Colors.red[300],
-                    fontSize: 20,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                     decoration: entry.isValid ? null : TextDecoration.lineThrough,
                   ),
@@ -1509,7 +1507,7 @@ class _GamePageState extends ConsumerState<GamePage>
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: const Color(0xFF2D2D2D),
           border: Border(
@@ -1518,41 +1516,44 @@ class _GamePageState extends ConsumerState<GamePage>
         ),
         child: Column(
           children: [
-            if (expectedChar != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '「$expectedChar」から始まる言葉を入力',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 14,
+            // 頭文字とホームボタンを横並び
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (expectedChar != null)
+                  Expanded(
+                    child: Text(
+                      '「$expectedChar」から始まる言葉を入力',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 12,
+                      ),
+                    ),
+                  )
+                else
+                  const Spacer(),
+                TextButton(
+                  onPressed: () {
+                    _timer?.cancel();
+                    setState(() {
+                      _phase = GamePhase.home;
+                      _session = null;
+                      _showGameOverModal = false;
+                    });
+                  },
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    '戻る',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                 ),
-              ),
-            // ホームに戻るボタン
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () {
-                  _timer?.cancel();
-                  setState(() {
-                    _phase = GamePhase.home;
-                    _session = null;
-                    _showGameOverModal = false;
-                  });
-                },
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  'ホームに戻る',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                ),
-              ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 2),
             Row(
               children: [
                 Expanded(
@@ -1566,13 +1567,15 @@ class _GamePageState extends ConsumerState<GamePage>
                     enableSuggestions: true,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 18,
+                      fontSize: 16,
                     ),
                     decoration: InputDecoration(
-                      hintText: '注意！ひらがなで入力！',
+                      hintText: 'ひらがなで入力',
                       hintStyle: TextStyle(color: Colors.grey[600]),
                       filled: true,
                       fillColor: const Color(0xFF1E1E1E),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      isDense: true,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.grey[700]!),
@@ -1589,15 +1592,15 @@ class _GamePageState extends ConsumerState<GamePage>
                     onSubmitted: (_) => _submitWord(),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: _isSubmitting || _isAiThinking ? null : _submitWord,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFD4AF37),
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
+                      horizontal: 16,
+                      vertical: 8,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -1605,8 +1608,8 @@ class _GamePageState extends ConsumerState<GamePage>
                   ),
                   child: _isSubmitting
                       ? const SizedBox(
-                          width: 20,
-                          height: 20,
+                          width: 16,
+                          height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             color: Colors.black,
@@ -1615,7 +1618,7 @@ class _GamePageState extends ConsumerState<GamePage>
                       : const Text(
                           '送信',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -1687,73 +1690,111 @@ class _GamePageState extends ConsumerState<GamePage>
       resultMessage = '悪魔の勝利';
     }
     
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 40),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: gradientColors,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFFD4AF37),
-            width: 2,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              resultMessage,
-              style: const TextStyle(
-                fontSize: 22,
-                color: Color(0xFFD4AF37),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // AIレベル選択（選択のみ、再戦は別ボタン）
-            const Text(
-              'AIのレベル',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildLevelSelectButton('初球', AiLevel.easy),
-                const SizedBox(width: 6),
-                _buildLevelSelectButton('中級', AiLevel.normal),
-                const SizedBox(width: 6),
-                _buildLevelSelectButton('上級', AiLevel.hard),
-              ],
-            ),
-            const SizedBox(height: 12),
-            
-            // 再戦するボタン
-            ElevatedButton(
-              onPressed: () => _startGame(level: _selectedLevel),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4AF37),
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+    return Positioned.fill(
+      child: GestureDetector(
+        onTap: () {}, // 背景タップを吸収（何もしない）
+        child: Container(
+          color: Colors.black54,
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 40),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: gradientColors,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFD4AF37),
+                  width: 2,
                 ),
               ),
-              child: const Text(
-                '再戦する',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    resultMessage,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      color: Color(0xFFD4AF37),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // AIレベル選択（選択のみ、再戦は別ボタン）
+                  const Text(
+                    'AIのレベル',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildLevelSelectButton('初球', AiLevel.easy),
+                      const SizedBox(width: 6),
+                      _buildLevelSelectButton('中級', AiLevel.normal),
+                      const SizedBox(width: 6),
+                      _buildLevelSelectButton('上級', AiLevel.hard),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // 再戦するボタン
+                  SizedBox(
+                    width: 160,
+                    child: ElevatedButton(
+                      onPressed: () => _startGame(level: _selectedLevel),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD4AF37),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        '再戦する',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // ホームに戻るボタン
+                  SizedBox(
+                    width: 160,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        _timer?.cancel();
+                        setState(() {
+                          _phase = GamePhase.home;
+                          _session = null;
+                          _showGameOverModal = false;
+                        });
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFD4AF37),
+                        side: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'ホーム',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

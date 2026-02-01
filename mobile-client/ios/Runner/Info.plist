@@ -10,7 +10,7 @@
 		<string>ja</string>
 	</array>
 	<key>CFBundleDisplayName</key>
-	<string>Mobile Client</string>
+	<string>悪魔的しりとり</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

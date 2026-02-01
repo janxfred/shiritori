@@ -211,9 +211,7 @@ export default async function (fastify: ServerInstance) {
       return reply.send({
         expired: result.expired,
         session: sessionToJson(result.session),
-        message: result.expired
-          ? "時は金なり…汝は時を浪費した。敗北だ。"
-          : undefined,
+        message: result.expired ? "時は金なり…汝は時を浪費した" : undefined,
       });
     },
   );
@@ -263,7 +261,7 @@ export default async function (fastify: ServerInstance) {
         session.status = "ai_win";
 
         // 状態更新（残り時間計算を止めないため turnStartedAt はそのまま）
-        const message = "戦意喪失…汝は魔界から目を逸らした。敗北だ。";
+        const message = "戦意喪失…汝は魔界から目を逸らした。";
 
         // ログに残す（turn/history 形式は既存と合わせる）
         session.history.push({

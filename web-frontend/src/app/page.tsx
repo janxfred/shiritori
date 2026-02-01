@@ -371,7 +371,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col p-4 md:p-8">
       {/* ヘッダー */}
-      <header className="flex justify-between items-center mb-6">
+      <header className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl md:text-3xl font-bold text-demon-gold">
             悪魔的しりとり
@@ -420,7 +420,7 @@ export default function HomePage() {
         {/* メインゲームエリア */}
         <div className="flex-1 flex flex-col">
           {/* 悪魔のメッセージ */}
-          <div className="demon-message rounded-lg p-6 mb-6">
+          <div className="demon-message rounded-lg p-2 mb-2">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 flex-shrink-0">
                 <svg viewBox="0 0 100 100" className="w-full h-full">
@@ -465,11 +465,19 @@ export default function HomePage() {
 
           {/* 次の頭文字表示 */}
           {session?.expectedStartChar && phase === "playing" && (
-            <div className="text-center mb-6">
-              <span className="text-demon-parchment/60">次の頭文字: </span>
-              <span className="text-demon-gold text-4xl font-bold animate-pulse-glow">
-                「{session.expectedStartChar}」
+            <div className="flex justify-center items-center gap-8 mb-6">
+              <span className="text-demon-parchment text-lg">
+                「{session.expectedStartChar}」から始まる言葉を入力
               </span>
+              <button
+                onClick={() => {
+                  setPhase("title");
+                  setSession(null);
+                }}
+                className="text-demon-parchment/60 hover:text-demon-gold transition-colors text-sm"
+              >
+                戻る
+              </button>
             </div>
           )}
 
