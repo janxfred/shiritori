@@ -49,7 +49,7 @@ export interface TurnResult {
  */
 export function processTurn(
   sessionId: string,
-  playerWord: string
+  playerWord: string,
 ): TurnResult | null {
   const session = getSession(sessionId);
   if (!session) return null;
@@ -72,7 +72,7 @@ export function processTurn(
   // 制限時間チェック
   if (isTimeExpired(session)) {
     session.status = "ai_win";
-    const message = "時は金なり…汝は時を浪費した。敗北だ。";
+    const message = "時は金なり…";
 
     const entry: TurnHistoryEntry = {
       turn: session.turnCount + 1,
@@ -180,7 +180,7 @@ export function processTurn(
 function checkRoundEnd(
   session: GameSession,
   playerResult: TurnResult["playerResult"],
-  aiResult: NonNullable<TurnResult["aiResult"]>
+  aiResult: NonNullable<TurnResult["aiResult"]>,
 ): TurnResult | null {
   // 通常ゲーム：10ラウンド終了チェック
   if (session.roundCount >= MAX_ROUNDS) {
@@ -216,7 +216,7 @@ function checkRoundEnd(
     } else {
       // 同点 → 引き分け
       session.status = "draw";
-      const message = "引き分けだ…互角の戦いだったな。";
+      const message = "…互角の戦いだったな。";
       updateSession(session);
       return {
         success: true,
@@ -248,7 +248,7 @@ export function checkTimeLimit(sessionId: string): {
 
   if (isTimeExpired(session)) {
     session.status = "ai_win";
-    const message = "時は金なり…汝は時を浪費した。敗北だ。";
+    const message = "時は金なり…";
 
     const entry: TurnHistoryEntry = {
       turn: session.turnCount + 1,
@@ -273,7 +273,7 @@ export function checkTimeLimit(sessionId: string): {
 function processPlayerResult(
   session: GameSession,
   word: string,
-  judge: JudgeResult
+  judge: JudgeResult,
 ): TurnResult["playerResult"] {
   session.turnCount++;
 
@@ -347,7 +347,7 @@ function processPlayerResult(
  * AIのターンを処理
  */
 function processAiTurn(
-  session: GameSession
+  session: GameSession,
 ): NonNullable<TurnResult["aiResult"]> {
   session.turnCount++;
 

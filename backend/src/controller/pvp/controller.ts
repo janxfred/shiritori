@@ -754,7 +754,7 @@ export default async function (fastify: ServerInstance) {
           word: "(時間切れ)",
           isValid: false,
           capturedChars: [],
-          message: "時は金なり…汝は時を浪費した。敗北だ。",
+          message: "時は金なり…汝は時を浪費した",
         });
 
         session.status = session.player1Id === winnerId ? "p1_win" : "p2_win";
@@ -851,7 +851,7 @@ export default async function (fastify: ServerInstance) {
       // 制限時間チェック
       if (isPvpTimeExpired(session)) {
         const opponentId = getOpponentId({ session, userId: payload.userId });
-        const message = "時は金なり…汝は時を浪費した。敗北だ。";
+        const message = "時は金なり…汝は時を浪費した";
 
         session.turnCount++;
         session.history.push({
@@ -1107,8 +1107,8 @@ export default async function (fastify: ServerInstance) {
 
       const loserId = session.currentTurnUserId;
       const winnerId = getOpponentId({ session, userId: loserId });
-      const loserMessage = "時は金なり…汝は時を浪費した。敗北だ。";
-      const winnerMessage = "時は金なり…相手は時を浪費した。勝利だ。";
+      const loserMessage = "時は金なり…汝は時を浪費した";
+      const winnerMessage = "相手は時を浪費した。勝利だ！";
       const messageForViewer =
         payload.userId === loserId ? loserMessage : winnerMessage;
 

@@ -372,14 +372,22 @@ export default async function (fastify: ServerInstance) {
       const adRewardKey = `ad_${payload.userId}`;
 
       // メモリ内でカウント（シンプルな実装）
-      const adRewardCountMap = (globalThis as Record<string, unknown>).__adRewardCount as Map<string, { count: number; date: string }> | undefined;
-      const adMap = adRewardCountMap ?? new Map<string, { count: number; date: string }>();
+      const adRewardCountMap = (globalThis as Record<string, unknown>)
+        .__adRewardCount as
+        | Map<string, { count: number; date: string }>
+        | undefined;
+      const adMap =
+        adRewardCountMap ?? new Map<string, { count: number; date: string }>();
       if (!adRewardCountMap) {
         (globalThis as Record<string, unknown>).__adRewardCount = adMap;
       }
       const record = adMap.get(adRewardKey);
 
-      if (record && record.date === today && record.count >= DAILY_AD_REWARD_LIMIT) {
+      if (
+        record &&
+        record.date === today &&
+        record.count >= DAILY_AD_REWARD_LIMIT
+      ) {
         return reply.status(429).send({
           message: "本日の広告報酬上限（20回）に達しました。",
         });

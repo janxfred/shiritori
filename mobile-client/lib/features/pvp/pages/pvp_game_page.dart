@@ -244,6 +244,58 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
     return '時間切れだ。';
   }
 
+  /// 敗因を判定して返す（敗北時のみ）
+  String? _getDefeatReason({required PvpSession session, required String myUserId}) {
+    final result = _resultText(session: session, myUserId: myUserId);
+    if (result != '敗北') return null;
+
+    final isP1 = session.player1Id == myUserId;
+    final myMistakes = isP1 ? session.player1MistakeCount : session.player2MistakeCount;
+    final myCaptured = isP1 ? session.player1CapturedChars : session.player2CapturedChars;
+    final oppCaptured = isP1 ? session.player2CapturedChars : session.player1CapturedChars;
+
+    // 履歴から最後の自分のターンを確認
+    final myLastTurn = session.history.lastWhere(
+      (h) => h.playerId == myUserId,
+      orElse: () => session.history.first,
+    );
+
+    // お手つき2回で敗北
+    if (myMistakes >= 2) {
+      // 最後のお手つきの種類を判定
+      if (!myLastTurn.isValid && myLastTurn.word.isNotEmpty) {
+        final word = myLastTurn.word;
+        // 「ん」で終わる
+        if (word.endsWith('ん')) {
+          return '敗因：「ん」で終わった';
+        }
+        // 相手の確保文字を使用したかチェック
+        for (int i = 1; i < word.length; i++) {
+          if (oppCaptured.contains(word[i])) {
+            return '敗因：相手の確保した文字「${word[i]}」の使用';
+          }
+        }
+        // その他のお手つき（辞書にない等）
+        return '敗因：2回お手つき';
+      }
+      return '敗因：2回お手つき';
+    }
+
+    // 時間切れ
+    if (session.remainingTimeMs <= 0) {
+      return '敗因：時間切れ';
+    }
+
+    // 確保文字数で負け（10ラウンド終了時）
+    if (session.roundCount >= session.maxRounds) {
+      if (myCaptured.length > oppCaptured.length) {
+        return '敗因：確保文字が相手より多すぎた（${myCaptured.length}文字 対 ${oppCaptured.length}文字）';
+      }
+    }
+
+    return '敗因：不明';
+  }
+
   String _formatTime(int ms) {
     final seconds = (ms / 1000).floor();
     final min = seconds ~/ 60;
@@ -502,7 +554,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                         children: [
                     // 上部: 残り時間
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFF2D2D2D),
                         border: Border(
@@ -515,7 +567,8 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                           builder: (context, remainingMs, _) {
                             // ターン制限40秒想定: 残り10秒を警告
                             final isLowTime = remainingMs < 10000;
-                            return Column(
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
                                   _formatTime(remainingMs),
@@ -523,10 +576,11 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                                     color: isLowTime
                                         ? Colors.red
                                         : const Color(0xFFD4AF37),
-                                    fontSize: 28,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
+                                const SizedBox(width: 12),
                                 Text(
                                   'R${session.roundCount}/${session.maxRounds}',
                                   style: TextStyle(
@@ -541,107 +595,26 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                       ),
                     ),
 
-                    // 対戦者情報エリア（相手 vs 自分）
-                    _buildBattleInfo(opponent: opponent, myUserId: auth.user.id),
-
-                    // 中部: 確保文字
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2D2D2D),
-                        border: Border(
-                          bottom: BorderSide(color: Colors.grey[800]!),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'あなたの確保した文字（${myCaptured.length}文字）',
-                                style: const TextStyle(
-                                  color: Color(0xFF026E14),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'お手付き$myMistakes',
-                                style: TextStyle(
-                                  color: Colors.red[400],
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            myCaptured.isEmpty ? '（なし）' : myCaptured.join('、'),
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Text(
-                                '相手の確保した文字（${oppCaptured.length}文字）',
-                                style: const TextStyle(
-                                  color: Color(0xFFC70606),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'お手付き$oppMistakes',
-                                style: TextStyle(
-                                  color: Colors.red[400],
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            oppCaptured.isEmpty ? '（なし）' : oppCaptured.join('、'),
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            isGameOver
-                                ? '結果: ${_resultText(session: session, myUserId: auth.user.id)}'
-                                : (isMyTurn ? 'あなたの手番' : '相手の手番'),
-                            style: TextStyle(color: Colors.grey[300]),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '次の頭文字: ${session.expectedStartChar}',
-                            style: TextStyle(color: Colors.grey[400]),
-                          ),
-                          if (session.lastWord != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              '直前の単語: ${session.lastWord}',
-                              style: TextStyle(color: Colors.grey[400]),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    // 下部: LINE風チャット履歴
+                    // 中部: LINE風チャット履歴
                     Expanded(
                       child: _buildChatHistory(
                         session: session,
                         myUserId: auth.user.id,
                       ),
+                    ),
+
+                    // 対戦者情報エリア（確保文字エリアのすぐ上）
+                    _buildBattleInfo(opponent: opponent, myUserId: auth.user.id),
+
+                    // 確保文字エリア（入力エリアのすぐ上）
+                    _buildCapturedCharsArea(
+                      myCaptured: myCaptured,
+                      oppCaptured: oppCaptured,
+                      myMistakes: myMistakes,
+                      oppMistakes: oppMistakes,
+                      isGameOver: isGameOver,
+                      session: session,
+                      myUserId: auth.user.id,
                     ),
 
                     // 最下部: 入力エリア
@@ -684,6 +657,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                               style: const TextStyle(
                                 color: Color(0xFFD4AF37),
                                 fontWeight: FontWeight.bold,
+                                fontSize: 12,
                               ),
                             ),
                           ),
@@ -798,6 +772,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
             : [const Color(0xFF8B0000), const Color(0xFF2D2D2D)];
 
     final titleText = isDraw ? '引き分け' : isWin ? 'あなたの勝利！' : 'あなたの敗北';
+    final defeatReason = _getDefeatReason(session: session, myUserId: myUserId);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 40),
@@ -825,6 +800,25 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
               fontWeight: FontWeight.bold,
             ),
           ),
+          // 敗因表示（敗北時のみ）
+          if (defeatReason != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 128),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                defeatReason,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.red[300],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -843,8 +837,8 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                   ),
                 ),
                 child: const Text(
-                  '再プレイ',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  '再戦する',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(width: 10),
@@ -863,7 +857,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                 ),
                 child: const Text(
                   'ホーム',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -886,7 +880,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
 
     return ListView.builder(
       controller: _historyScrollController,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(8),
       itemCount: history.length,
       itemBuilder: (context, index) {
         final entry = history[index];
@@ -894,8 +888,8 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
         return Align(
           alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            margin: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: isMine
                   ? const Color(0xFF1B5E20).withValues(alpha: 204)
@@ -914,7 +908,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
               entry.word,
               style: TextStyle(
                 color: entry.isValid ? Colors.white : Colors.red[300],
-                fontSize: 20,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
                 decoration: entry.isValid ? null : TextDecoration.lineThrough,
               ),
@@ -932,7 +926,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
   }) {
     if (isGameOver) {
       return Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFF2D2D2D),
           border: Border(
@@ -944,93 +938,99 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF2D2D2D),
         border: Border(
           top: BorderSide(color: Colors.grey[800]!),
         ),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+          // 頭文字表示
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E1E),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFD4AF37)),
+            ),
             child: Text(
-              '「$expectedChar」から始まる言葉を入力',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 14,
+              '「$expectedChar」',
+              style: const TextStyle(
+                color: Color(0xFFD4AF37),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _wordController,
-                  enabled: !_busy && isMyTurn,
-                  keyboardType: TextInputType.text,
-                  textInputAction: TextInputAction.send,
-                  autocorrect: false,
-                  enableSuggestions: true,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: '注意！ひらがなで入力！',
-                    helperText: isMyTurn ? null : '相手の手番です',
-                    hintStyle: TextStyle(color: Colors.grey[600]),
-                    filled: true,
-                    fillColor: const Color(0xFF1E1E1E),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey[700]!),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey[700]!),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFD4AF37)),
-                    ),
-                  ),
-                  onSubmitted: (_) => _submitWord(),
+          const SizedBox(width: 8),
+          // 入力欄
+          Expanded(
+            child: TextField(
+              controller: _wordController,
+              enabled: !_busy && isMyTurn,
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.send,
+              autocorrect: false,
+              enableSuggestions: true,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+              ),
+              decoration: InputDecoration(
+                hintText: isMyTurn ? 'ひらがなで入力' : '相手の手番です',
+                hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
+                filled: true,
+                fillColor: const Color(0xFF1E1E1E),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[700]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[700]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFD4AF37)),
                 ),
               ),
-              const SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: (!_busy && isMyTurn) ? _submitWord : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD4AF37),
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: _busy
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.black,
-                        ),
-                      )
-                    : const Text(
-                        '送信',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+              onSubmitted: (_) => _submitWord(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 送信ボタン
+          ElevatedButton(
+            onPressed: (!_busy && isMyTurn) ? _submitWord : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD4AF37),
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
               ),
-            ],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: _busy
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.black,
+                    ),
+                  )
+                : const Text(
+                    '送信',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -1048,7 +1048,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
     final opponentTitle = opponent?.titleName ?? '';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         color: const Color(0xFF2D2D2D),
         border: Border(
@@ -1065,10 +1065,10 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
               title: _myTitle ?? '',
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           // VS表示
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.red[900],
               borderRadius: BorderRadius.circular(8),
@@ -1078,12 +1078,12 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
               'VS',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           // 相手の情報
           Expanded(
             child: _buildPlayerCard(
@@ -1107,46 +1107,46 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
       children: [
         // アイコン
         Container(
-          width: 48,
-          height: 48,
+          width: 36,
+          height: 36,
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
           ),
           child: ClipOval(
             child: iconUrl == null
                 ? Container(
-                    width: 48,
-                    height: 48,
+                    width: 36,
+                    height: 36,
                     color: Colors.grey[700],
-                    child: const Icon(Icons.person, color: Colors.white, size: 28),
+                    child: const Icon(Icons.person, color: Colors.white, size: 20),
                   )
                 : Image.network(
                     iconUrl,
-                    width: 48,
-                    height: 48,
+                    width: 36,
+                    height: 36,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
-                      width: 48,
-                      height: 48,
+                      width: 36,
+                      height: 36,
                       color: Colors.grey[700],
-                      child: const Icon(Icons.person, color: Colors.white, size: 28),
+                      child: const Icon(Icons.person, color: Colors.white, size: 20),
                     ),
                   ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         // メッセージ
         Text(
           message,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 12,
+            fontSize: 10,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         // 称号
         if (title.isNotEmpty)
           Text(
@@ -1160,6 +1160,103 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
             textAlign: TextAlign.center,
           ),
       ],
+    );
+  }
+
+  /// 確保文字エリア（入力エリアのすぐ上に表示）
+  Widget _buildCapturedCharsArea({
+    required List<String> myCaptured,
+    required List<String> oppCaptured,
+    required int myMistakes,
+    required int oppMistakes,
+    required bool isGameOver,
+    required PvpSession session,
+    required String myUserId,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D2D2D),
+        border: Border(
+          top: BorderSide(color: Colors.grey[800]!),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'あなたの確保した文字（${myCaptured.length}文字）',
+                style: const TextStyle(
+                  color: Color(0xFF026E14),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'お手付き$myMistakes',
+                style: TextStyle(
+                  color: Colors.red[400],
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            myCaptured.isEmpty ? '（なし）' : myCaptured.join('、'),
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                '相手の確保した文字（${oppCaptured.length}文字）',
+                style: const TextStyle(
+                  color: Color(0xFFC70606),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'お手付き$oppMistakes',
+                style: TextStyle(
+                  color: Colors.red[400],
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            oppCaptured.isEmpty ? '（なし）' : oppCaptured.join('、'),
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 12,
+            ),
+          ),
+          if (isGameOver) ...[
+            const SizedBox(height: 8),
+            Text(
+              '結果: ${_resultText(session: session, myUserId: myUserId)}',
+              style: TextStyle(color: Colors.grey[300], fontSize: 12),
+            ),
+          ],
+          if (session.lastWord != null && isGameOver) ...[
+            const SizedBox(height: 2),
+            Text(
+              '直前の単語: ${session.lastWord}',
+              style: TextStyle(color: Colors.grey[400], fontSize: 12),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
