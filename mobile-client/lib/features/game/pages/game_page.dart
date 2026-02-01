@@ -490,6 +490,63 @@ class _GamePageState extends ConsumerState<GamePage>
     return '$min:${sec.toString().padLeft(2, '0')}';
   }
 
+  /// 敗因を判定して返す（敗北時のみ）
+  String? _getDefeatReason() {
+    // 勝利または引き分けの場合は表示しない
+    if (_winner != 'ai') return null;
+    
+    final session = _session;
+    if (session == null) return null;
+
+    // 履歴から最後のプレイヤーのターンを確認
+    final playerLastTurn = session.history.lastWhere(
+      (h) => h.player == 'player',
+      orElse: () => session.history.isNotEmpty ? session.history.first : TurnHistoryEntry(
+        turn: 0,
+        player: 'player',
+        word: '',
+        isValid: true,
+        capturedChars: [],
+        message: '',
+      ),
+    );
+
+    // お手つき2回で敗北
+    if (session.playerMistakeCount >= 2) {
+      // 最後のお手つきの種類を判定
+      if (!playerLastTurn.isValid && playerLastTurn.word.isNotEmpty) {
+        final word = playerLastTurn.word;
+        // 「ん」で終わる
+        if (word.endsWith('ん')) {
+          return '敗因：「ん」で終わった';
+        }
+        // AIの確保文字を使用したかチェック
+        for (int i = 1; i < word.length; i++) {
+          if (session.aiCapturedChars.contains(word[i])) {
+            return '敗因：悪魔の確保した文字「${word[i]}」の使用';
+          }
+        }
+        // その他のお手つき（辞書にない等）
+        return '敗因：2回お手つき';
+      }
+      return '敗因：2回お手つき';
+    }
+
+    // 時間切れ
+    if (session.remainingTimeMs <= 0) {
+      return '敗因：時間切れ';
+    }
+
+    // 確保文字数で負け（10ラウンド終了時）
+    if (session.roundCount >= session.maxRounds) {
+      if (session.playerCapturedChars.length > session.aiCapturedChars.length) {
+        return '敗因：確保文字が悪魔より多すぎた（${session.playerCapturedChars.length}文字 対 ${session.aiCapturedChars.length}文字）';
+      }
+    }
+
+    return '敗因：不明';
+  }
+
   @override
   Widget build(BuildContext context) {
     // 認証状態が変わった時にプレゼント数を更新
@@ -1559,7 +1616,7 @@ class _GamePageState extends ConsumerState<GamePage>
                 Expanded(
                   child: TextField(
                     controller: _inputController,
-                    enabled: !_isSubmitting && !_isAiThinking,
+                    enabled: !_isSubmitting && !_isAiThinking && !_showGameOverModal,
                     // ひらがな入力を有効化
                     keyboardType: TextInputType.text,
                     textInputAction: TextInputAction.send,
@@ -1593,36 +1650,60 @@ class _GamePageState extends ConsumerState<GamePage>
                   ),
                 ),
                 const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: _isSubmitting || _isAiThinking ? null : _submitWord,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFD4AF37),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
+                // ゲーム終了時は「結果」ボタン、それ以外は送信ボタン
+                if (_showGameOverModal || (_winner != null && _phase == GamePhase.playing))
+                  ElevatedButton(
+                    onPressed: () => setState(() => _showGameOverModal = true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD4AF37),
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                    child: const Text(
+                      '開く',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: _isSubmitting || _isAiThinking || _showGameOverModal ? null : _submitWord,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD4AF37),
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.black,
+                            ),
+                          )
+                        : const Text(
+                            '送信',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.black,
-                          ),
-                        )
-                      : const Text(
-                          '送信',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
               ],
             ),
           ],
@@ -1675,6 +1756,7 @@ class _GamePageState extends ConsumerState<GamePage>
   Widget _buildGameOverModal() {
     final isPlayerWin = _winner == 'player';
     final isDraw = _winner == null;
+    final defeatReason = _getDefeatReason();
     
     // 結果に応じた色とメッセージ
     List<Color> gradientColors;
@@ -1696,42 +1778,66 @@ class _GamePageState extends ConsumerState<GamePage>
         child: Container(
           color: Colors.black54,
           child: Center(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 40),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: gradientColors,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFFD4AF37),
-                  width: 2,
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    resultMessage,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      color: Color(0xFFD4AF37),
-                      fontWeight: FontWeight.bold,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: gradientColors,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFFD4AF37),
+                      width: 2,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 閉じるボタン用のスペース
+                      const SizedBox(height: 8),
+                      Text(
+                        resultMessage,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          color: Color(0xFFD4AF37),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      // 敗因表示（敗北時のみ）
+                      if (defeatReason != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 128),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            defeatReason,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.red[300],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
                   
-                  // AIレベル選択（選択のみ、再戦は別ボタン）
-                  const Text(
-                    'AIのレベル',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
-                  ),
+                      // AIレベル選択（選択のみ、再戦は別ボタン）
+                      const Text(
+                        'AIのレベル',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
                   const SizedBox(height: 6),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1791,8 +1897,44 @@ class _GamePageState extends ConsumerState<GamePage>
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  // 閉じるボタン（感想戦用）
+                  TextButton(
+                    onPressed: () => setState(() => _showGameOverModal = false),
+                    child: Text(
+                      '履歴を見る',
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
                 ],
               ),
+            ),
+            // 閉じるボタン（右上）
+            Positioned(
+              top: -8,
+              right: 32,
+              child: GestureDetector(
+                onTap: () => setState(() => _showGameOverModal = false),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2D2D2D),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFD4AF37), width: 2),
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: Color(0xFFD4AF37),
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          ],
             ),
           ),
         ),

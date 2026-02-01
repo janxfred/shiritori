@@ -37,6 +37,8 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
   bool _polling = false;
   bool _showGameOverModal = false;
   bool _syncedMeAfterGameOver = false;
+  // ユーザーがモーダルを閉じたかどうか（感想戦用）
+  bool _userDismissedModal = false;
 
   bool _showBattleIntro = false;
   bool _battleIntroShownOnce = false;
@@ -512,8 +514,8 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
             final isMyTurn = session.currentTurnUserId == auth.user.id;
             final isGameOver = session.status != 'playing';
 
-            // 初期ロードで既に終了状態の場合もモーダルを出す
-            if (isGameOver && !_showGameOverModal) {
+            // 初期ロードで既に終了状態の場合もモーダルを出す（ユーザーが閉じていなければ）
+            if (isGameOver && !_showGameOverModal && !_userDismissedModal) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
                 setState(() => _showGameOverModal = true);
@@ -774,32 +776,36 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
     final titleText = isDraw ? '引き分け' : isWin ? 'あなたの勝利！' : 'あなたの敗北';
     final defeatReason = _getDefeatReason(session: session, myUserId: myUserId);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 40),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: gradientColors,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFD4AF37),
-          width: 2,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            titleText,
-            style: const TextStyle(
-              fontSize: 22,
-              color: Color(0xFFD4AF37),
-              fontWeight: FontWeight.bold,
+    return Stack(
+      children: [
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: gradientColors,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFFD4AF37),
+              width: 2,
             ),
           ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 閉じるボタン用のスペース
+              const SizedBox(height: 8),
+              Text(
+                titleText,
+                style: const TextStyle(
+                  fontSize: 22,
+                  color: Color(0xFFD4AF37),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
           // 敗因表示（敗北時のみ）
           if (defeatReason != null) ...[
             const SizedBox(height: 12),
@@ -864,7 +870,34 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
           ),
         ],
       ),
-    );
+    ),
+    // 閉じるボタン（右上）
+    Positioned(
+      top: 0,
+      right: 32,
+      child: GestureDetector(
+        onTap: () => setState(() {
+          _showGameOverModal = false;
+          _userDismissedModal = true;
+        }),
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: const Color(0xFF2D2D2D),
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFD4AF37), width: 2),
+          ),
+          child: const Icon(
+            Icons.close,
+            color: Color(0xFFD4AF37),
+            size: 18,
+          ),
+        ),
+      ),
+    ),
+  ],
+);
   }
 
   Widget _buildChatHistory({required PvpSession session, required String myUserId}) {
@@ -924,18 +957,8 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
     required bool isMyTurn,
     required bool isGameOver,
   }) {
-    if (isGameOver) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF2D2D2D),
-          border: Border(
-            top: BorderSide(color: Colors.grey[800]!),
-          ),
-        ),
-        child: const SizedBox.shrink(),
-      );
-    }
+    // ゲーム終了後は入力不可（感想戦用にチャット履歴を見るため表示は維持）
+    final canInput = !_busy && isMyTurn && !isGameOver;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -969,7 +992,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
           Expanded(
             child: TextField(
               controller: _wordController,
-              enabled: !_busy && isMyTurn,
+              enabled: canInput,
               keyboardType: TextInputType.text,
               textInputAction: TextInputAction.send,
               autocorrect: false,
@@ -979,7 +1002,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                 fontSize: 12,
               ),
               decoration: InputDecoration(
-                hintText: isMyTurn ? 'ひらがなで入力' : '相手の手番です',
+                hintText: isGameOver ? '対戦終了' : (isMyTurn ? 'ひらがなで入力' : '相手の手番です'),
                 hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                 filled: true,
                 fillColor: const Color(0xFF1E1E1E),
@@ -1001,37 +1024,60 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
             ),
           ),
           const SizedBox(width: 8),
-          // 送信ボタン
-          ElevatedButton(
-            onPressed: (!_busy && isMyTurn) ? _submitWord : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD4AF37),
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
+          // ゲーム終了時は「結果を表示」ボタン、それ以外は送信ボタン
+          if (isGameOver)
+            ElevatedButton(
+              onPressed: () => setState(() => _showGameOverModal = true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+              child: const Text(
+                '開く',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+            )
+          else
+            ElevatedButton(
+              onPressed: canInput ? _submitWord : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4AF37),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: _busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.black,
+                      ),
+                    )
+                  : const Text(
+                      '送信',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
-            child: _busy
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.black,
-                    ),
-                  )
-                : const Text(
-                    '送信',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-          ),
         ],
       ),
     );
