@@ -479,7 +479,9 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
+        bottom: false,
         child: sessionAsync.when(
           data: (_) {
             if (auth == null) {

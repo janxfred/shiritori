@@ -559,7 +559,9 @@ class _GamePageState extends ConsumerState<GamePage>
 
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             // バナー広告（常に上部に表示）
