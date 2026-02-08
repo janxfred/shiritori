@@ -97,7 +97,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
     setState(() => _showBattleIntro = true);
 
     _battleIntroTimer?.cancel();
-    _battleIntroTimer = Timer(const Duration(seconds: 3), () {
+    _battleIntroTimer = Timer(const Duration(seconds: 5), () {
       if (!mounted) return;
       setState(() => _showBattleIntro = false);
     });
@@ -371,9 +371,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
       _updateSession(s, myUserId: auth.user.id);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('更新に失敗しました: $e')),
-      );
+      // SnackBar表示を削除
     } finally {
       if (mounted) setState(() => _polling = false);
     }
@@ -394,16 +392,7 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
         _updateSession(res.session!, myUserId: auth.user.id);
       }
       if (res.expired && res.message != null) {
-        final session = _session;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              session == null
-                  ? res.message!
-                  : _timeExpiredMessageForViewer(session: session, myUserId: auth.user.id),
-            ),
-          ),
-        );
+        // SnackBar表示を削除
       }
     } catch (_) {
       // チェックは補助的なので黙殺
@@ -443,14 +432,10 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
 
       _wordController.clear();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res.playerResult.message)),
-      );
+      // SnackBar表示を削除
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('送信に失敗しました: $e')),
-      );
+      // SnackBar表示を削除
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -606,9 +591,6 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
                         myUserId: auth.user.id,
                       ),
                     ),
-
-                    // 対戦者情報エリア（確保文字エリアのすぐ上）
-                    _buildBattleInfo(opponent: opponent, myUserId: auth.user.id),
 
                     // 確保文字エリア（入力エリアのすぐ上）
                     _buildCapturedCharsArea(
@@ -961,9 +943,13 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
   }) {
     // ゲーム終了後は入力不可（感想戦用にチャット履歴を見るため表示は維持）
     final canInput = !_busy && isMyTurn && !isGameOver;
+    // キーボード非表示時のみナビゲーションバー分のパディングを追加
+    final bottomPadding = MediaQuery.of(context).viewInsets.bottom == 0
+        ? MediaQuery.of(context).viewPadding.bottom
+        : 0.0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 8 + bottomPadding),
       decoration: BoxDecoration(
         color: const Color(0xFF2D2D2D),
         border: Border(

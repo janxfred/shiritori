@@ -209,9 +209,7 @@ class _RankedMatchPageState extends ConsumerState<RankedMatchPage> {
       context.go('/pvp/${res.sessionId}', extra: pvpOpponent);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('対戦の開始に失敗しました: $e')),
-      );
+      // SnackBar表示を削除
       context.go('/');
     }
   }

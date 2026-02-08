@@ -15,20 +15,6 @@ export const TITLE_CATALOG: readonly TitleCatalogEntry[] = [
     condition: "デフォルト",
     fromGacha: false,
   },
-  {
-    id: "title_sub_01",
-    name: "言霊の欠片",
-    description: "まだ小さな力。",
-    condition: "デフォルト",
-    fromGacha: false,
-  },
-  {
-    id: "title_sub_02",
-    name: "沈黙の観測者",
-    description: "言葉の行方を見届ける者。",
-    condition: "デフォルト",
-    fromGacha: false,
-  },
 
   // ========== ガチャから獲得可能な称号 ==========
   {
