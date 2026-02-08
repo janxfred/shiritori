@@ -476,9 +476,7 @@ class _GamePageState extends ConsumerState<GamePage>
 
   /// エラー表示
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red[800]),
-    );
+    // SnackBar表示を削除
   }
 
   /// 残り時間をフォーマット
@@ -1117,9 +1115,6 @@ class _GamePageState extends ConsumerState<GamePage>
         // 中部: LINE風チャット履歴
         Expanded(child: _buildHistory()),
         
-        // 対戦者情報エリア（確保文字エリアのすぐ上）
-        if (session != null) _buildBattleInfo(session),
-        
         // 確保文字エリア（入力エリアのすぐ上）
         _buildCapturedCharsArea(),
         
@@ -1556,6 +1551,10 @@ class _GamePageState extends ConsumerState<GamePage>
   /// 入力エリア
   Widget _buildInputArea() {
     final expectedChar = _session?.expectedStartChar;
+    // キーボード非表示時のみナビゲーションバー分のパディングを追加
+    final bottomPadding = MediaQuery.of(context).viewInsets.bottom == 0
+        ? MediaQuery.of(context).viewPadding.bottom
+        : 0.0;
     
     return AnimatedBuilder(
       animation: _shakeAnimation,
@@ -1566,7 +1565,7 @@ class _GamePageState extends ConsumerState<GamePage>
         );
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: EdgeInsets.only(left: 12, right: 12, top: 4, bottom: 4 + bottomPadding),
         decoration: BoxDecoration(
           color: const Color(0xFF2D2D2D),
           border: Border(

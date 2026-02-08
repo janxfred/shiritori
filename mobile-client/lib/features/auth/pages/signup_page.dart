@@ -30,21 +30,15 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     final name = _nameController.text.trim();
     final password = _passwordController.text;
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('プレイヤー名を入力してください')),
-      );
+      // SnackBar表示を削除
       return;
     }
     if (password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('合言葉を入力してください')),
-      );
+      // SnackBar表示を削除
       return;
     }
     if (password.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('合言葉は6文字以上にしてください')),
-      );
+      // SnackBar表示を削除
       return;
     }
 
@@ -57,9 +51,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     if (!mounted) return;
 
     if (state.hasError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('登録に失敗しました: ${_errorText(state.error!)}')),
-      );
+      // SnackBar表示を削除
       return;
     }
 

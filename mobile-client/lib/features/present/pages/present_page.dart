@@ -59,14 +59,10 @@ class _PresentPageState extends ConsumerState<PresentPage> {
       });
     } on DioException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_friendlyApiErrorMessage(e))),
-      );
+      // SnackBar表示を削除
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('取得に失敗しました: $e')),
-      );
+      // SnackBar表示を削除
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -143,14 +139,10 @@ class _PresentPageState extends ConsumerState<PresentPage> {
       }
     } on DioException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_friendlyApiErrorMessage(e))),
-      );
+      // SnackBar表示を削除
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('受け取りに失敗しました: $e')),
-      );
+      // SnackBar表示を削除
     } finally {
       if (mounted) setState(() => _busy = false);
     }

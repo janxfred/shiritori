@@ -41,7 +41,7 @@ async function main() {
     },
   });
 
-  const titleIds = ["title_main_01", "title_sub_01", "title_sub_02"] as const;
+  const titleIds = ["title_main_01"] as const;
 
   await prisma.title.upsert({
     where: { id: titleIds[0] },
@@ -50,28 +50,6 @@ async function main() {
       id: titleIds[0],
       name: "新米の契約者",
       description: "魔界へようこそ。",
-      condition: "デフォルト",
-    },
-  });
-
-  await prisma.title.upsert({
-    where: { id: titleIds[1] },
-    update: { condition: "デフォルト" },
-    create: {
-      id: titleIds[1],
-      name: "言霊の欠片",
-      description: "まだ小さな力。",
-      condition: "デフォルト",
-    },
-  });
-
-  await prisma.title.upsert({
-    where: { id: titleIds[2] },
-    update: { condition: "デフォルト" },
-    create: {
-      id: titleIds[2],
-      name: "沈黙の観測者",
-      description: "言葉の行方を見届ける者。",
       condition: "デフォルト",
     },
   });

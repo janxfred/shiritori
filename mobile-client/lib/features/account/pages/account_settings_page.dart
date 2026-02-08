@@ -132,9 +132,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     final ad = _rewardedAd;
     if (ad == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('広告の読み込みに失敗しました')),
-      );
+      // SnackBar表示を削除
       return;
     }
 
@@ -173,14 +171,10 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                 ),
               );
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('魂を1回復しました')),
-          );
+          // SnackBar表示を削除
         } catch (e) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('報酬の受け取りに失敗しました: $e')),
-          );
+          // SnackBar表示を削除
         } finally {
           if (mounted) setState(() => _claimingRewardedAd = false);
         }
@@ -192,9 +186,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     final uri = Uri.parse(_inquiryUrl);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('URLを開けませんでした')),
-      );
+      // SnackBar表示を削除
     }
   }
 
@@ -202,9 +194,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     final uri = Uri.parse(url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('URLを開けませんでした')),
-      );
+      // SnackBar表示を削除
     }
   }
 
@@ -254,9 +244,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
       await _refresh();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('プレミアムプランに加入しました')),
-      );
+      // SnackBar表示を削除
     } on PlatformException catch (e) {
       // RevenueCatのエラーハンドリング
       if (!mounted) return;
@@ -293,20 +281,11 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
           message = '購入に失敗しました: ${e.message}';
       }
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      // SnackBar表示を削除
     } catch (e) {
       if (!mounted) return;
       // その他のエラー（パッケージが見つからない等）
-      final errorMessage = e.toString();
-      // エラーメッセージが長すぎる場合は短縮
-      final displayMessage = errorMessage.length > 100
-          ? '${errorMessage.substring(0, 100)}...'
-          : errorMessage;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('購入に失敗しました: $displayMessage')),
-      );
+      // SnackBar表示を削除
     } finally {
       if (mounted) setState(() => _purchasingSubscription = false);
     }
@@ -340,18 +319,10 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
       await _refresh();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isActive ? '購入履歴を復元しました' : '復元可能な購入が見つかりませんでした',
-          ),
-        ),
-      );
+      // SnackBar表示を削除
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('復元に失敗しました: $e')),
-      );
+      // SnackBar表示を削除
     } finally {
       if (mounted) setState(() => _purchasingSubscription = false);
     }
@@ -398,9 +369,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
           );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('取得に失敗しました: $e')),
-      );
+      // SnackBar表示を削除
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -425,16 +394,10 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
 
       await _refresh();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.rewarded ? 'メールアドレスを連携しました（報酬獲得）' : 'メールアドレスを変更しました'),
-        ),
-      );
+      // SnackBar表示を削除
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('更新に失敗しました: $e')),
-      );
+      // SnackBar表示を削除
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -453,14 +416,10 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
       ref.read(authControllerProvider.notifier).updateUser(session.user.copyWith(email: null));
       await _refresh();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('メール連携を解除しました')),
-      );
+      // SnackBar表示を削除
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('解除に失敗しました: $e')),
-      );
+      // SnackBar表示を削除
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -472,21 +431,16 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     final session = ref.read(authControllerProvider).valueOrNull;
     if (session == null) return;
 
-    setState(() => _busy = true);
+    _busy = true;
     try {
       final meApi = ref.read(meApiProvider);
-      await meApi.updateMe(token: session.token, iconId: iconId);
-      await _refresh();
+      final updated = await meApi.updateMe(token: session.token, iconId: iconId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('アイコンを変更しました')),
-      );
+      setState(() {
+        _me = updated;
+        _busy = false;
+      });
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('アイコン変更に失敗しました: $e')),
-      );
-    } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
@@ -497,25 +451,18 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     final session = ref.read(authControllerProvider).valueOrNull;
     if (session == null) return;
 
-    setState(() => _busy = true);
+    _busy = true;
     try {
       final meApi = ref.read(meApiProvider);
-      if (titleId == null) {
-        await meApi.updateMe(token: session.token, clearTitle1: true);
-      } else {
-        await meApi.updateMe(token: session.token, title1Id: titleId);
-      }
-      await _refresh();
+      final updated = titleId == null
+          ? await meApi.updateMe(token: session.token, clearTitle1: true)
+          : await meApi.updateMe(token: session.token, title1Id: titleId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('称号を変更しました')),
-      );
+      setState(() {
+        _me = updated;
+        _busy = false;
+      });
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('称号変更に失敗しました: $e')),
-      );
-    } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
@@ -526,21 +473,16 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     final session = ref.read(authControllerProvider).valueOrNull;
     if (session == null) return;
 
-    setState(() => _busy = true);
+    _busy = true;
     try {
       final meApi = ref.read(meApiProvider);
-      await meApi.updateMe(token: session.token, messageId: messageId);
-      await _refresh();
+      final updated = await meApi.updateMe(token: session.token, messageId: messageId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('メッセージを変更しました')),
-      );
+      setState(() {
+        _me = updated;
+        _busy = false;
+      });
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('メッセージ変更に失敗しました: $e')),
-      );
-    } finally {
       if (mounted) setState(() => _busy = false);
     }
   }

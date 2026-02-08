@@ -35,9 +35,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (!mounted) return;
 
     if (state.hasError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ログインに失敗しました: ${state.error}')),
-      );
+      // SnackBar表示を削除
       return;
     }
 
