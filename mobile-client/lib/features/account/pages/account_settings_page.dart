@@ -431,17 +431,16 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     final session = ref.read(authControllerProvider).valueOrNull;
     if (session == null) return;
 
-    setState(() => _busy = true);
+    _busy = true;
     try {
       final meApi = ref.read(meApiProvider);
-      await meApi.updateMe(token: session.token, iconId: iconId);
-      await _refresh();
+      final updated = await meApi.updateMe(token: session.token, iconId: iconId);
       if (!mounted) return;
-      // SnackBar表示を削除
+      setState(() {
+        _me = updated;
+        _busy = false;
+      });
     } catch (e) {
-      if (!mounted) return;
-      // SnackBar表示を削除
-    } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
@@ -452,21 +451,18 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     final session = ref.read(authControllerProvider).valueOrNull;
     if (session == null) return;
 
-    setState(() => _busy = true);
+    _busy = true;
     try {
       final meApi = ref.read(meApiProvider);
-      if (titleId == null) {
-        await meApi.updateMe(token: session.token, clearTitle1: true);
-      } else {
-        await meApi.updateMe(token: session.token, title1Id: titleId);
-      }
-      await _refresh();
+      final updated = titleId == null
+          ? await meApi.updateMe(token: session.token, clearTitle1: true)
+          : await meApi.updateMe(token: session.token, title1Id: titleId);
       if (!mounted) return;
-      // SnackBar表示を削除
+      setState(() {
+        _me = updated;
+        _busy = false;
+      });
     } catch (e) {
-      if (!mounted) return;
-      // SnackBar表示を削除
-    } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
@@ -477,17 +473,16 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     final session = ref.read(authControllerProvider).valueOrNull;
     if (session == null) return;
 
-    setState(() => _busy = true);
+    _busy = true;
     try {
       final meApi = ref.read(meApiProvider);
-      await meApi.updateMe(token: session.token, messageId: messageId);
-      await _refresh();
+      final updated = await meApi.updateMe(token: session.token, messageId: messageId);
       if (!mounted) return;
-      // SnackBar表示を削除
+      setState(() {
+        _me = updated;
+        _busy = false;
+      });
     } catch (e) {
-      if (!mounted) return;
-      // SnackBar表示を削除
-    } finally {
       if (mounted) setState(() => _busy = false);
     }
   }

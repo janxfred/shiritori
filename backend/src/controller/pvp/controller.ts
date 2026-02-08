@@ -954,6 +954,9 @@ export default async function (fastify: ServerInstance) {
           });
         }
 
+        // お手付き後もタイマーリセット（次の入力に40秒の猶予を与える）
+        session.turnStartedAt = new Date();
+
         await updatePvpSession(session);
         return reply.send({
           session: sessionToJson(session),

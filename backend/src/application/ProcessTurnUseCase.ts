@@ -164,7 +164,9 @@ export function processTurn(
     };
   }
 
-  // お手つきでも時間はリセットしない（そのまま継続）
+  // お手つき後もタイマーリセット（次の入力に40秒の猶予を与える）
+  session.turnStartedAt = new Date();
+
   updateSession(session);
   return {
     success: true,
