@@ -102,7 +102,11 @@ class _GamePageState extends ConsumerState<GamePage>
       vsync: this,
     )..repeat();
     
-    _loadBannerAd();
+    // 課金ユーザーは広告をロードしない
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null || !session.user.isSubscriber) {
+      _loadBannerAd();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchUnclaimedPresentCount();
       _loadMyEquipment();

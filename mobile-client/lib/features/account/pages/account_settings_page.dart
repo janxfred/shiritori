@@ -240,6 +240,11 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
       // ローカル状態を更新
       setState(() => _customerInfo = customerInfo);
 
+      // 即座にisSubscriberをAuthUserに反映（広告非表示のため）
+      ref.read(authControllerProvider.notifier).updateUser(
+        session.user.copyWith(isSubscriber: isActive),
+      );
+
       // ユーザー情報をリフレッシュ
       await _refresh();
 
@@ -315,6 +320,11 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
       // ローカル状態を更新
       setState(() => _customerInfo = customerInfo);
 
+      // 即座にisSubscriberをAuthUserに反映（広告非表示のため）
+      ref.read(authControllerProvider.notifier).updateUser(
+        session.user.copyWith(isSubscriber: isActive),
+      );
+
       // ユーザー情報をリフレッシュ
       await _refresh();
 
@@ -365,6 +375,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
               email: me.email,
               coins: me.coins,
               soulCount: me.soulCount,
+              isSubscriber: me.isSubscriber,
             ),
           );
     } catch (e) {
