@@ -86,7 +86,11 @@ class _PvpGamePageState extends ConsumerState<PvpGamePage> {
       _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     });
 
-    _loadBannerAd();
+    // 課金ユーザーは広告をロードしない
+    final session = ref.read(authControllerProvider).valueOrNull;
+    if (session == null || !session.user.isSubscriber) {
+      _loadBannerAd();
+    }
   }
 
   void _startBattleIntroIfNeeded() {
