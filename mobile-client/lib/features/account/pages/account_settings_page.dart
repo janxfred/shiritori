@@ -42,7 +42,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
   bool _loadingSubscription = false;
   bool _purchasingSubscription = false;
 
-  static const _rewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
+  static const _rewardedAdUnitId = 'ca-app-pub-7752899951060344/3208491882';
   static const _inquiryUrl = 'https://forms.gle/LPXFy4RXbQdV3LCg7';
   // RevenueCatのパッケージ識別子（$rc_monthlyは月額サブスクリプションの標準識別子）
   // これはRevenueCatダッシュボードでのPackage設定に依存
