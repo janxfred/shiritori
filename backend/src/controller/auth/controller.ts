@@ -136,17 +136,27 @@ async function findLoginUser(
   prisma: ReturnType<typeof getPrisma>,
   identifier: string,
 ) {
-  // 1) internal id (uuid)
-  const byId = await prisma.user.findUnique({ where: { id: identifier } });
-  if (byId) return { user: byId } as const;
+  // UUID形式 → id で1本のみ
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      identifier,
+    )
+  ) {
+    const user = await prisma.user.findUnique({ where: { id: identifier } });
+    if (user) return { user } as const;
+    return { user: null } as const;
+  }
 
-  // 2) email (unique)
-  const byEmail = await prisma.user.findUnique({
-    where: { email: identifier },
-  });
-  if (byEmail) return { user: byEmail } as const;
+  // @を含む → email で1本のみ
+  if (identifier.includes("@")) {
+    const user = await prisma.user.findUnique({
+      where: { email: identifier },
+    });
+    if (user) return { user } as const;
+    return { user: null } as const;
+  }
 
-  // 3) name (non-unique) -> disambiguate
+  // それ以外 → name で検索（インデックスあり）
   const byName = await prisma.user.findMany({ where: { name: identifier } });
   if (byName.length === 1) {
     const user = byName[0];
@@ -307,6 +317,7 @@ export default async function (fastify: ServerInstance) {
 
       const now = new Date();
       let loginBonusGranted = false;
+      let bgConsecutiveLoginDays = 0;
 
       // トランザクションでログイン処理
       const updated = await prisma.$transaction(async (tx) => {
@@ -386,6 +397,9 @@ export default async function (fastify: ServerInstance) {
           newConsecutiveLoginDays = 1;
         }
 
+        // バックグラウンドタスク向けに連続ログイン日数を記録
+        bgConsecutiveLoginDays = newConsecutiveLoginDays;
+
         // 統計を更新
         await tx.userStats.update({
           where: { userId: user.id },
@@ -395,12 +409,6 @@ export default async function (fastify: ServerInstance) {
           },
         });
 
-        // 連続ログイン称号チェック
-        await checkLoginStreakTitles(tx, user.id, newConsecutiveLoginDays);
-
-        // ウィークリーミッションのリセットチェック
-        await checkAndResetWeeklyMission(tx, user.id);
-
         // ユーザー情報を更新
         const updatedUser = await tx.user.update({
           where: { id: user.id },
@@ -409,9 +417,6 @@ export default async function (fastify: ServerInstance) {
             lastLoginBonusAt: loginBonusGranted ? now : undefined,
           },
         });
-
-        // コイン保有称号チェック
-        await checkCoinsTitles(tx, user.id, updatedUser.coins);
 
         return updatedUser;
       });
@@ -423,11 +428,22 @@ export default async function (fastify: ServerInstance) {
         ? `ログインしました（ログインボーナス${bonusAmount}コインをプレゼントボックスに追加しました）`
         : "ログインしました";
 
-      return reply.send({
+      reply.send({
         message,
         token: signAuthToken({ userId: updated.id }),
         user: formatAuthUser(updated),
       });
+
+      // バックグラウンド: 称号チェック・ウィークリーミッションリセット（レスポンスをブロックしない）
+      void getPrisma()
+        .$transaction(async (tx) => {
+          await checkLoginStreakTitles(tx, user.id, bgConsecutiveLoginDays);
+          await checkAndResetWeeklyMission(tx, user.id);
+          await checkCoinsTitles(tx, user.id, updated.coins);
+        })
+        .catch((err: unknown) => {
+          fastify.log.error({ err }, "login background task failed");
+        });
     },
   );
 }
